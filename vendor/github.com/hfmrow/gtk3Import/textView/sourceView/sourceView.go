@@ -38,7 +38,7 @@ import (
 )
 
 type SourceViewStruct struct {
-	window    gtk.IWindow
+	Window    gtk.IWindow
 	View      *source.SourceView
 	Buffer    *source.SourceBuffer
 	Map       *source.SourceMap
@@ -101,9 +101,14 @@ type SourceViewStruct struct {
 	dialog                   *gtk.Dialog
 }
 
-func SourceViewStructNew(window gtk.IWindow, sourceView *source.SourceView, sourceMap *source.SourceMap) (svs *SourceViewStruct, err error) {
+// SourceViewStructNew:
+func SourceViewStructNew(sourceView *source.SourceView, sourceMap *source.SourceMap, parentWindow ...gtk.IWindow) (svs *SourceViewStruct, err error) {
 
 	svs = new(SourceViewStruct)
+
+	if len(parentWindow) > 0 {
+		svs.Window = parentWindow[0]
+	}
 
 	svs.View = sourceView
 	svs.Map = sourceMap
@@ -134,8 +139,51 @@ func SourceViewStructNew(window gtk.IWindow, sourceView *source.SourceView, sour
 		svs.DefaultStyleShemeId = "classic"
 		svs.DefaultLanguageId = "go"
 
+		// Make a tag to indicate found element (when HighlightFound not checked)
+		// tag := make(map[string]interface{})
+		// tag["background"] = "#ABF6FF"
+		// markFound = svs.Buffer.CreateTag("markFound", tag)
+
 	}
 	return
+}
+
+// ComboboxHandling: 'defaultValues' if present must be: Language followed by Style
+// they're the main options (stored values) that will be updated each time one of them are changed.
+func (svs *SourceViewStruct) ComboboxHandling(cbxtStyle, cbxtLang *gtk.ComboBoxText, defaultLang, defaultStyle *string) {
+
+	// Setting Language and style scheme
+	if currentLanguage := svs.SetLanguage(svs.DefaultLanguageId); currentLanguage != nil {
+		if currentStyleScheme := svs.SetStyleScheme(svs.DefaultStyleShemeId); currentStyleScheme != nil {
+
+			// Fill comboboxes with languages and styles
+			for _, id := range svs.LanguageIds {
+				cbxtLang.AppendText(id)
+			}
+			for _, id := range svs.StyleShemeIds {
+				cbxtStyle.AppendText(id)
+			}
+
+			// Just indicate id must be set as first model column.
+			cbxtLang.SetIDColumn(0)
+			cbxtStyle.SetIDColumn(0)
+
+			// Set ComboBox current values display.
+			cbxtLang.SetActiveID(svs.DefaultLanguageId)
+			cbxtStyle.SetActiveID(svs.DefaultStyleShemeId)
+
+			// Signals changed
+			cbxtLang.Connect("changed", func(cbxt *gtk.ComboBoxText) {
+				*defaultLang = cbxt.GetActiveID()
+				svs.SetLanguage(*defaultLang)
+			})
+			cbxtStyle.Connect("changed", func(cbxt *gtk.ComboBoxText) {
+				*defaultStyle = cbxt.GetActiveID()
+				svs.SetStyleScheme(*defaultStyle)
+			})
+
+		}
+	}
 }
 
 // SetLanguage:
@@ -246,7 +294,7 @@ func (svs *SourceViewStruct) StyleChooserDialog() string {
 
 			// Create Dialog.
 			if svs.dialog, err = gtk.DialogNewWithButtons("Choose scheme style",
-				svs.window, gtk.DIALOG_DESTROY_WITH_PARENT,
+				svs.Window, gtk.DIALOG_DESTROY_WITH_PARENT,
 				[]interface{}{"Cancel", gtk.RESPONSE_CANCEL},
 				[]interface{}{"Accept", gtk.RESPONSE_ACCEPT}); err == nil {
 
