@@ -14,8 +14,6 @@ package main
 
 /*
 	This software use also:
-	- Chroma — A general purpose syntax highlighter in pure Go,
-	  under the MIT License: https://github.com/alecthomas/chroma/blob/master/COPYING
 
 	- Go library that provides fuzzy string matching,
 	  under the MIT License: https://github.com/sahilm/fuzzy/blob/master/LICENSE
