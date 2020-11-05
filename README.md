@@ -108,6 +108,6 @@ This operation indicate that externals data (Image/Icons) must be embedded into 
 
 ### Visit
 
-##### [GitHub repository](https://github.com/hfmrow/sAndReplace)
+##### [hfmrow (H.F.M) / Repositories · GitHub](https://github.com/hfmrow?tab=repositories)
 
 ##### [Website H.F.M's Linux softwares](https://hfmrow.go.yo.fr/)
