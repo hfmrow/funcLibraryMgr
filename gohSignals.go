@@ -30,8 +30,6 @@ func signalsPropHandler() {
 	mainObjects.CheckBoxIncludeExported.Connect("toggled", CheckBoxGenericToggled)
 	mainObjects.CheckBoxIncludeFunctions.Connect("toggled", CheckBoxGenericToggled)
 	mainObjects.CheckBoxIncludeStructures.Connect("toggled", CheckBoxGenericToggled)
-	mainObjects.ComboboxSourceLanguage.Connect("changed", ComboboxSourceLanguageChanged)
-	mainObjects.ComboboxSourceStyle.Connect("changed", ComboboxSourceStyleChanged)
 	mainObjects.EntrySearchFor.Connect("changed", EntrySearchForChanged)
 	mainObjects.EvenboxTop.Connect("button-release-event", ProjEvenboxButtonReleaseEvent)
 	mainObjects.FileChooserSelectDir.Connect("file-set", FileChooserSelectDirFileSet)

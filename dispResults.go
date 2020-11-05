@@ -71,7 +71,7 @@ func popupSourceView(index int) {
 
 	if svs == nil {
 
-		svs, err = SourceViewStructNew(mainObjects.WindowSource, mainObjects.Source, mainObjects.SourceMap)
+		svs, err = SourceViewStructNew(mainObjects.Source, mainObjects.SourceMap, mainObjects.WindowSource)
 		DlgErr("popupSourceView:SourceViewStructNew", err)
 		svs.View.SetEditable(false)
 
@@ -85,30 +85,38 @@ func popupSourceView(index int) {
 		markFound = svs.Buffer.CreateTag("markFound", tag)
 
 		// Language & style, add a personal version for Golang (directory content)
-		svs.UserStylePath = mainOptions.HighlightUserDefined
-		svs.UserLanguagePath = mainOptions.HighlightUserDefined
+		svs.UserStylePath = filepath.Join(absoluteRealPath, mainOptions.HighlightUserDefined)
+		svs.UserLanguagePath = filepath.Join(absoluteRealPath, mainOptions.HighlightUserDefined)
+		svs.DefaultLanguageId = mainOptions.DefaulLanguage
+		svs.DefaultStyleShemeId = mainOptions.DefaultStyle
 
-		// Setting Language and style scheme
-		if currentLanguage := svs.SetLanguage(mainOptions.DefaulLanguage); currentLanguage != nil {
-			if currentStyleScheme := svs.SetStyleScheme(mainOptions.DefaultStyle); currentStyleScheme != nil {
+		svs.ComboboxHandling(
+			mainObjects.ComboboxSourceLanguage,
+			mainObjects.ComboboxSourceStyle,
+			&mainOptions.DefaulLanguage,
+			&mainOptions.DefaultStyle)
 
-				// Fill comboboxes with languages and styles
-				for _, id := range svs.LanguageIds {
-					mainObjects.ComboboxSourceLanguage.AppendText(id)
-				}
-				for _, id := range svs.StyleShemeIds {
-					mainObjects.ComboboxSourceStyle.AppendText(id)
-				}
+		// // Setting Language and style scheme
+		// if currentLanguage := svs.SetLanguage(mainOptions.DefaulLanguage); currentLanguage != nil {
+		// 	if currentStyleScheme := svs.SetStyleScheme(mainOptions.DefaultStyle); currentStyleScheme != nil {
 
-				// Just indicate id must be set as first model column.
-				mainObjects.ComboboxSourceLanguage.SetIDColumn(0)
-				mainObjects.ComboboxSourceStyle.SetIDColumn(0)
+		// 		// Fill comboboxes with languages and styles
+		// 		for _, id := range svs.LanguageIds {
+		// 			mainObjects.ComboboxSourceLanguage.AppendText(id)
+		// 		}
+		// 		for _, id := range svs.StyleShemeIds {
+		// 			mainObjects.ComboboxSourceStyle.AppendText(id)
+		// 		}
 
-				// Set ComboBox current values display.
-				mainObjects.ComboboxSourceLanguage.SetActiveID(mainOptions.DefaulLanguage)
-				mainObjects.ComboboxSourceStyle.SetActiveID(mainOptions.DefaultStyle)
-			}
-		}
+		// 		// Just indicate id must be set as first model column.
+		// 		mainObjects.ComboboxSourceLanguage.SetIDColumn(0)
+		// 		mainObjects.ComboboxSourceStyle.SetIDColumn(0)
+
+		// 		// Set ComboBox current values display.
+		// 		mainObjects.ComboboxSourceLanguage.SetActiveID(mainOptions.DefaulLanguage)
+		// 		mainObjects.ComboboxSourceStyle.SetActiveID(mainOptions.DefaultStyle)
+		// 	}
+		// }
 
 		mainObjects.WindowSource.Resize(mainOptions.SourceWinWidth, mainOptions.SourceWinHeight)
 		mainObjects.WindowSource.Move(mainOptions.SourceWinPosX, mainOptions.SourceWinPosY)

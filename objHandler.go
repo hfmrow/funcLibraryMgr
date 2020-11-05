@@ -172,16 +172,6 @@ func SourceToggleButtonWrapToggled(t *gtk.ToggleButton) {
 	}
 }
 
-func ComboboxSourceLanguageChanged(cbx *gtk.ComboBoxText) {
-	mainOptions.DefaulLanguage = cbx.GetActiveID()
-	svs.SetLanguage(mainOptions.DefaulLanguage)
-}
-
-func ComboboxSourceStyleChanged(cbx *gtk.ComboBoxText) {
-	mainOptions.DefaultStyle = cbx.GetActiveID()
-	svs.SetStyleScheme(mainOptions.DefaultStyle)
-}
-
 /*
  * stack
  */
