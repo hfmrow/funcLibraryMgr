@@ -96,28 +96,6 @@ func popupSourceView(index int) {
 			&mainOptions.DefaulLanguage,
 			&mainOptions.DefaultStyle)
 
-		// // Setting Language and style scheme
-		// if currentLanguage := svs.SetLanguage(mainOptions.DefaulLanguage); currentLanguage != nil {
-		// 	if currentStyleScheme := svs.SetStyleScheme(mainOptions.DefaultStyle); currentStyleScheme != nil {
-
-		// 		// Fill comboboxes with languages and styles
-		// 		for _, id := range svs.LanguageIds {
-		// 			mainObjects.ComboboxSourceLanguage.AppendText(id)
-		// 		}
-		// 		for _, id := range svs.StyleShemeIds {
-		// 			mainObjects.ComboboxSourceStyle.AppendText(id)
-		// 		}
-
-		// 		// Just indicate id must be set as first model column.
-		// 		mainObjects.ComboboxSourceLanguage.SetIDColumn(0)
-		// 		mainObjects.ComboboxSourceStyle.SetIDColumn(0)
-
-		// 		// Set ComboBox current values display.
-		// 		mainObjects.ComboboxSourceLanguage.SetActiveID(mainOptions.DefaulLanguage)
-		// 		mainObjects.ComboboxSourceStyle.SetActiveID(mainOptions.DefaultStyle)
-		// 	}
-		// }
-
 		mainObjects.WindowSource.Resize(mainOptions.SourceWinWidth, mainOptions.SourceWinHeight)
 		mainObjects.WindowSource.Move(mainOptions.SourceWinPosX, mainOptions.SourceWinPosY)
 		mainObjects.PanedSource.SetPosition(mainOptions.MainWinWidth - mainOptions.PanedWidth)
