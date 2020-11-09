@@ -10,11 +10,31 @@
 
 ---
 
+###### libgtksourceview-4-0 is required to work:
+
+ (most Linux distributions include it natively)
+
+```bash
+$ sudo apt install libgtksourceview-4-0
+```
+
+> **Functions Library Manager** Debian package installation:
+> 
+> ```bash
+> $ sudo dpkg -i func-library-mgr-x.x-amd64.deb
+> ```
+> 
+> Uninstall:
+> 
+> ```bash
+> $ sudo dpkg -P func-library-mgr
+> ```
+
 Take a look at [H.F.M repositories](https://github.com/hfmrow/) for others useful Linux software.
 
-- If you just want **to use it**, simply **download** the **compiled version** under the [Releases](https://github.com/hfmrow/funcLibraryMgr/releases) tab. You can check at [the Right way to install H.F.M's softwares](https://github.com/hfmrow/instHFMsofts) page to integrate this software in your Debian environment.
+- If you just want **to use it**, simply **download** the **compiled version** ( .deb or .7z) under the [Releases](https://github.com/hfmrow/funcLibraryMgr/releases) tab.
 
-- **Notice**, ".desktop" file is made to work into the "/opt" directory, if you want to put main folder in an other place, please adjust the ".desktop" file to match the desired directory. Remember, all resources used are embedded in the executable. An ".opt" file is made at the first launch it's used to store used options (stored in ~/.config dir).
+- **Notice** (.7z version): You can check at [the Right way to install H.F.M's software](https://github.com/hfmrow/instHFMsofts) page to integrate in your Debian environment. ".desktop" file is made to work into the "/opt" directory, if you want to put main folder in an other place, please adjust the ".desktop" file to match the desired directory. Remember, all resources used are embedded in the executable. An ".opt" file is made at the first launch it's used to store used options (stored in ~/.config dir).
 
 - Otherwise, if you plan to play inside the source code, see below "How to compile" section.
 
