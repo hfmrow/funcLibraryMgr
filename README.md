@@ -68,13 +68,13 @@ Take a look at [H.F.M repositories](https://github.com/hfmrow/) for others usefu
 
 - See [Gotk3 Installation instructions](https://github.com/gotk3/gotk3/wiki#installation) for gui installation instruction.
 
-- `go get github.com/hfmrow/gotk3_gtksource/source` is also required.
+-  [gotk3\_gtksource](https://github.com/hfmrow/gotk3_gtksource) is also required.
 
 - To change gtk3 interface you need to use the ```devMode = true``` to disable embedding assets. see below ...
 
 - To change language file you need to use another home made software, (not published actually). So don't change language file ...
 
-- To Produce a stand-alone executable, you must change inside "main.go" file:
+- To Produce a **stand-alone executable**, you must change inside "main.go" file:
 
 ```go
     func main() {
