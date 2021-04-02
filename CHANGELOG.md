@@ -14,7 +14,7 @@
 
 - Source code preview window can now be minimized/maximized to/from the task-bar.
 - The display behavior in the found tab has changed, now with each search request the previous results are cleared and if nothing is found nothing is displayed.
-- Repository name has changed to [https://github/hfmrow/func-lib-mgr](https://github.com/hfmrow/func-lib-mgr)  instead of `https://github.com/hfmrow/funcLibraryMgr`
+- Repository name has changed to [https://github.com/hfmrow/go-func-lib-mgr](https://github.com/hfmrow/go-func-lib-mgr)  instead of `https://github.com/hfmrow/funcLibraryMgr`
 
 ----
 
