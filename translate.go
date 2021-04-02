@@ -1,6 +1,6 @@
 // translate.go
 
-// File generated on Wed, 04 Nov 2020 22:04:30 using Gotk3ObjectsTranslate v1.4.3 2019-20 H.F.M
+// File generated on Wed, 02 Dec 2020 21:33:31 using Gotk3 Objects Translate v1.5 2019-20 H.F.M
 
 /*
 * 	This program comes with absolutely no warranty.
@@ -39,9 +39,13 @@ func (trans *MainTranslate) initGtkObjectsText() {
 	trans.setTextToGtkObjects(&mainObjects.EntrySearchFor.Widget, "EntrySearchFor")
 	trans.setTextToGtkObjects(&mainObjects.FileChooserSelectDir.Widget, "FileChooserSelectDir")
 	trans.setTextToGtkObjects(&mainObjects.ImageTop.Widget, "ImageTop")
+	trans.setTextToGtkObjects(&mainObjects.ScrolledWindowExclude.Widget, "ScrolledWindowExclude")
+	trans.setTextToGtkObjects(&mainObjects.ScrolledWindowInclude.Widget, "ScrolledWindowInclude")
+	trans.setTextToGtkObjects(&mainObjects.Source.Widget, "Source")
 	trans.setTextToGtkObjects(&mainObjects.SourceToggleButtonMapWidth.Widget, "SourceToggleButtonMapWidth")
 	trans.setTextToGtkObjects(&mainObjects.SourceToggleButtonWrap.Widget, "SourceToggleButtonWrap")
 	trans.setTextToGtkObjects(&mainObjects.SpinButtonScoreThreshold.Widget, "SpinButtonScoreThreshold")
+	trans.setTextToGtkObjects(&mainObjects.Statusbar.Widget, "Statusbar")
 	trans.setTextToGtkObjects(&mainObjects.TreeViewExclude.Widget, "TreeViewExclude")
 	trans.setTextToGtkObjects(&mainObjects.TreeViewFound.Widget, "TreeViewFound")
 	trans.setTextToGtkObjects(&mainObjects.TreeViewInclude.Widget, "TreeViewInclude")
@@ -55,31 +59,31 @@ var translate = new(MainTranslate)
 // They'll be added to language file each time application started
 // when "devMode" is set at true.
 var sts = map[string]string{
-	`deny`: `Deny`,
-	`found`: `Found: `,
-	`retry`: `Retry`,
 	`noResult`: `No result found for`,
-	`savef`: `Save file`,
-	`all`: `All`,
-	`viewText`: `View text content`,
-	`ok`: `Ok`,
 	`status`: `Status:`,
-	`allow`: `Allow`,
-	`continue`: `Continue`,
-	`fileSet`: `File set: `,
-	`none`: `None`,
-	`viewMethods`: `View methods`,
-	`cancel`: `Cancel`,
-	`yes`: `Yes`,
-	`noLibsToScan`: `There is no defined library in which to search.`,
-	`dispUnexported`: `Display unexported methods`,
-	`entries`: `Entries: `,
-	`errEOF`: `This usually happens with poorly formatted source files.
-Check for syntax error and/or an incorrect go-formatting error`,
+	`viewText`: `View text content`,
+	`all`: `All`,
 	`issue`: `An issue occured:`,
 	`openf`: `Open file`,
+	`allow`: `Allow`,
+	`noLibsToScan`: `There is no defined library in which to search.`,
 	`close`: `Close`,
+	`deny`: `Deny`,
+	`errEOF`: `This usually happens with poorly formatted source files.
+Check for syntax error and/or an incorrect go-formatting error`,
+	`continue`: `Continue`,
+	`viewMethods`: `View methods`,
+	`fileSet`: `File set: `,
+	`savef`: `Save file`,
+	`yes`: `Yes`,
+	`ok`: `Ok`,
+	`found`: `Found: `,
+	`entries`: `Entries: `,
+	`dispUnexported`: `Display unexported methods`,
+	`cancel`: `Cancel`,
 	`no`: `No`,
+	`none`: `None`,
+	`retry`: `Retry`,
 }
 
 
@@ -198,7 +202,14 @@ type propObject struct {
 var propPerObjects = []propObject{
 	{Class: "GtkButton", Label: true, Tooltip: true, TooltipMarkup: true},
 	{Class: "GtkMenuButton", Label: true, Tooltip: true, TooltipMarkup: true},
-	{Class: "GtkToolButton", Label: true, Tooltip: true, TooltipMarkup: true},
+
+	// {Class: "GtkToolButton", Label: true, Tooltip: true, TooltipMarkup: true},    // Deprecated since 3.10
+	// {Class: "GtkImageMenuItem", Label: true, Tooltip: true, TooltipMarkup: true}, // Deprecated since 3.10
+
+	{Class: "GtkMenuItem", Label: true, Tooltip: true, TooltipMarkup: true},
+	{Class: "GtkCheckMenuItem", Label: true, Tooltip: true, TooltipMarkup: true},
+	{Class: "GtkRadioMenuItem", Label: true, Tooltip: true, TooltipMarkup: true},
+
 	{Class: "GtkToggleButton", Label: true, Tooltip: true, TooltipMarkup: true},
 	{Class: "GtkLabel", Label: true, LabelMarkup: true, Tooltip: true, TooltipMarkup: true, LabelWrap: true},
 	{Class: "GtkSpinButton", Tooltip: true, TooltipMarkup: true},
@@ -215,6 +226,9 @@ var propPerObjects = []propObject{
 	{Class: "GtkTreeView", Tooltip: true, TooltipMarkup: true},
 	{Class: "GtkFileChooserButton", Tooltip: true, TooltipMarkup: true},
 	{Class: "GtkTextView", Tooltip: true, TooltipMarkup: true},
+	{Class: "GtkSourceView", Tooltip: true, TooltipMarkup: true},
+	{Class: "GtkStatusbar", Tooltip: true, TooltipMarkup: true},
+	{Class: "GtkScrolledWindow", Tooltip: true, TooltipMarkup: true},
 }
 
 // setTextToGtkObjects: read translations from structure and set them to object.

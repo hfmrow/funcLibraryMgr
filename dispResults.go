@@ -26,37 +26,44 @@ import (
 
 // displayTreeStore: Fill TreeViewFound with found results
 func displayTreeStore(in []toDispTreeStore) (err error) {
-	var iter *gtk.TreeIter
 
-	if len(in) > 0 { // Detach & clear listStore
-		tvsTreeSearch.StoreDetach()
-		tvsTreeSearch.TreeStore.Clear()
+	var (
+		iter *gtk.TreeIter
+
+		onExitFunc = func() {
+			// Attach listStore
+			tvsTreeSearch.StoreAttach()
+			// Update statusbar
+			if tvsTreeSearch.CountRows() == 0 {
+				updateStatusBar(fmt.Sprintf(sts["noResult"]+"\"%s\"", GetEntryText(mainObjects.EntrySearchFor)))
+			}
+			updateStatusBar()
+		}
+	)
+
+	// Detach & clear listStore
+	tvsTreeSearch.StoreDetach()
+	tvsTreeSearch.TreeStore.Clear()
+	defer onExitFunc()
+
+	if len(in) > 0 {
 
 		// Add parents
 		for _, row := range in {
 			if iter, err = tvsTreeSearch.AddRow(nil, row.Name, row.Type, row.Exported, row.Path, row.Score, row.Idx); err != nil {
-				tvsTreeSearch.StoreAttach()
 				DlgErr("displayTreeStore:AddParents", err)
 				return
 			}
 			// Add childs if exists (structures' methods)
 			for _, subRow := range row.Methods {
 				if _, err = tvsTreeSearch.AddRow(iter, subRow.Name, subRow.Type, subRow.Exported, subRow.Path, subRow.Score, subRow.Idx); err != nil {
-					tvsTreeSearch.StoreAttach()
 					DlgErr("displayTreeStore:AddChilds", err)
 					return
 				}
 			}
 		}
-		// Attach listStore
-		tvsTreeSearch.StoreAttach()
 	}
-	// Update statusbar
-	if tvsTreeSearch.CountRows() > 0 {
-		updateStatusBar()
-	} else {
-		updateStatusBar(fmt.Sprintf(sts["noResult"]+"\"%s\"", GetEntryText(mainObjects.EntrySearchFor)))
-	}
+
 	return
 }
 
@@ -72,7 +79,7 @@ func popupSourceView(index int) {
 	if svs == nil {
 
 		svs, err = SourceViewStructNew(mainObjects.Source, mainObjects.SourceMap, mainObjects.WindowSource)
-		DlgErr("popupSourceView:SourceViewStructNew", err)
+		DlgErr("popupSourceView/SourceViewStructNew", err)
 		svs.View.SetEditable(false)
 
 		// Handling "populate-popup" signal to add some personal entries
@@ -125,10 +132,8 @@ func dispTextView(index int) {
 			svs.SelectRange(descr.LineStart+1, descr.LineEnd+1)
 
 			svs.RunAfterEvents(func() {
-				mainObjects.WindowSource.SetKeepAbove(true)
+				svs.BringToFront()
 				svs.ScrollToLine(descr.LineStart)
-				mainObjects.WindowSource.ShowAll()
-				mainObjects.WindowSource.SetKeepAbove(false)
 			})
 
 		}

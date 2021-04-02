@@ -96,7 +96,7 @@ type TreeViewStructure struct {
 	// TODO check out this ...
 	// When "HasTooltip" is true, this function is launched,
 	// Case of use: display tooltip according to rows currently hovered.
-	// returned "bool" mean display or not the tooltip.
+	// returned "bool" means display or not the tooltip.
 	CallbackTooltipFunc func(iter *gtk.TreeIter, path *gtk.TreePath, column *gtk.TreeViewColumn, tooltip *gtk.Tooltip) bool
 	HasTooltip          bool
 
@@ -485,7 +485,7 @@ func (tvs *TreeViewStructure) buildStore(colTypeSl []glib.Type) (err error) {
 * applied to Path       *
 ************************/
 
-// // ScrollToCell: "column" argument set to nul, mean column 0,
+// // ScrollToCell: "column" argument set to nul, means column 0,
 // func (tvs *TreeViewStructure) scrollToCell(path *gtk.TreePath, column *gtk.TreeViewColumn, align bool, xalign, yalign float32) {
 // 	if column == nil {
 // 		column = tvs.Columns[0].Column
@@ -692,7 +692,7 @@ func (tvs *TreeViewStructure) AddRow(parent *gtk.TreeIter, row ...interface{}) (
 // InsertRow: Insert a row to the Store (defined by type of "store" variable).
 // "parent" is useless for ListStore, if its set to nil on TreeStore,
 // it will create a new parent otherwise the new iter will be a child of it.
-// "insertPos" indicate row number for insertion, set to -1 mean append at the end.
+// "insertPos" indicate row number for insertion, set to -1 means append at the end.
 func (tvs *TreeViewStructure) InsertRow(parent *gtk.TreeIter, insertPos int, row ...interface{}) (iter *gtk.TreeIter, err error) {
 
 	iter = new(gtk.TreeIter)
@@ -1245,7 +1245,7 @@ func (tvs *TreeViewStructure) treeViewQueryTooltip(tw *gtk.TreeView, x, y int, K
 // getHeaderHeight: Used to get height of header to use with [TreeView.IsBlankAtPos],
 // It is needed to decrease y pos by height of cells to get a correct path value.
 func (tvs *TreeViewStructure) getHeaderHeight() (height int) {
-	if tvs.headerHeight < 0 { // That mean that is launched only at the first call.
+	if tvs.headerHeight < 0 { // That means that is launched only at the first call.
 		for gtk.EventsPending() {
 			gtk.MainIteration() // Wait for pending events (until the widget is redrawn)
 		}

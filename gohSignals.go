@@ -1,11 +1,11 @@
 // gohSignals.go
 
 /*
-	Source file auto-generated on Thu, 05 Nov 2020 07:28:28 using Gotk3ObjHandler v1.6.5 ©2018-20 H.F.M
+	Source file auto-generated on Fri, 02 Apr 2021 08:27:58 using Gotk3 Objects Handler v1.7.5 ©2018-21 hfmrow
 	This software use gotk3 that is licensed under the ISC License:
 	https://github.com/gotk3/gotk3/blob/master/LICENSE
 
-	Copyright ©2019-20 H.F.M - Functions & Library Manager v1.0 github.com/hfmrow/funcLibraryMgr
+	Copyright ©2019-21 H.F.M - Functions & Library Manager v1.1.4 github.com/hfmrow/go-func-lib-mgr
 	This program comes with absolutely no warranty. See the The MIT License (MIT) for details:
 	https://opensource.org/licenses/mit-license.php
 */
@@ -33,22 +33,12 @@ func signalsPropHandler() {
 	mainObjects.EntrySearchFor.Connect("changed", EntrySearchForChanged)
 	mainObjects.EvenboxTop.Connect("button-release-event", ProjEvenboxButtonReleaseEvent)
 	mainObjects.FileChooserSelectDir.Connect("file-set", FileChooserSelectDirFileSet)
-	mainObjects.ImageTop.Connect("notify", blankNotify)
-	mainObjects.MainWindow.Connect("notify", blankNotify)
-	mainObjects.PanedSource.Connect("notify", blankNotify)
-	mainObjects.ScrolledWindowExclude.Connect("notify", blankNotify)
-	mainObjects.ScrolledWindowInclude.Connect("notify", blankNotify)
-	mainObjects.Source.Connect("notify", blankNotify)
-	mainObjects.SourceMap.Connect("notify", blankNotify)
 	mainObjects.SourceToggleButtonMapWidth.Connect("toggled", SourceToggleButtonMapWidthToggled)
 	mainObjects.SourceToggleButtonWrap.Connect("toggled", SourceToggleButtonWrapToggled)
 	mainObjects.SpinButtonScoreThreshold.Connect("value-changed", CheckBoxGenericToggled)
-	mainObjects.Stack.Connect("notify", blankNotify)
-	mainObjects.Statusbar.Connect("notify", blankNotify)
 	mainObjects.TreeViewExclude.Connect("button-press-event", popupLibExc.CheckRMBFromTreeView)
 	mainObjects.TreeViewFound.Connect("row-activated", TreeViewFoundRowActivated)
 	mainObjects.TreeViewFound.Connect("button-press-event", TreeViewFoundButtonPressEvent)
 	mainObjects.TreeViewInclude.Connect("button-press-event", popupLibInc.CheckRMBFromTreeView)
-	mainObjects.TreeViewVendor.Connect("notify", blankNotify)
 	mainObjects.WindowSource.Connect("check-resize", WindowSourceCheckResize)
 }

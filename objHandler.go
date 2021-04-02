@@ -10,30 +10,14 @@
 package main
 
 import (
-	"log"
 	"os"
-	"strings"
 
 	"github.com/gotk3/gotk3/gdk"
 	"github.com/gotk3/gotk3/gtk"
 )
 
 func TreeSelectionVendorChanged() {
-	// if _, iter, ok := mainObjects.TreeSelectionVendor.GetSelected(); ok {
-	// 	if path, err := tvsTree.TreeStore.GetPath(iter); err == nil {
-	// 		fmt.Println(path.String())
-	// 	}
-	// }
 }
-
-// // TreeViewFoundButtonPressEvent: Popup menu integration
-// func TreeViewFoundButtonPressEvent(tw *gtk.TreeView, event *gdk.Event) bool {
-// 	// popup whether at least an element is selected
-// 	if tvsTreeSearch.Selection.CountSelectedRows() > 0 {
-// 		popupMenu.CheckRMBFromTreeView(tw, event)
-// 	}
-// 	return false // Propagate event
-// }
 
 // TreeViewFoundButtonPressEvent: Popup menu integration
 func TreeViewFoundButtonPressEvent(tw *gtk.TreeView, event *gdk.Event) bool {
@@ -44,32 +28,21 @@ func TreeViewFoundButtonPressEvent(tw *gtk.TreeView, event *gdk.Event) bool {
 	return false // Propagate event
 }
 
-// CallbackTooltipFunc: display tooltip with func/struct informations
-func CallbackTooltipFunc(iter *gtk.TreeIter, path *gtk.TreePath, column *gtk.TreeViewColumn, tooltip *gtk.Tooltip) bool {
-	index := tvsTreeSearch.GetColValue(iter, 5).(int)
-	descr, ok := declIdexes.GetDescr(index)
-	if !ok {
-		log.Printf("TreeViewFoundQueryTooltip: Unable to get description\n")
-		return false
-	}
-	comment := strings.TrimSpace(descr.Comment)
-	if len(comment) > 2 {
-		tooltip.SetText(comment)
-		tvsTreeSearch.TreeView.SetTooltipRow(tooltip, path)
-		return true // ok to display
-	}
-	return false
-}
-
 // TreeViewFoundRowActivated:
 func TreeViewFoundRowActivated(tv *gtk.TreeView, path *gtk.TreePath, col *gtk.TreeViewColumn) {
-	var err error
-	var iter *gtk.TreeIter
+
+	var (
+		err  error
+		iter *gtk.TreeIter
+	)
+
 	if iter, err = tvsTreeSearch.Model.GetIter(path); err == nil {
 
-		tvsTreeSearch.GetRowNbIter(iter)
+		// tvsTreeSearch.GetRowNbIter(iter)
 
-		popupSourceView(tvsTreeSearch.GetColValue(iter, 5).(int))
+		// Display content to preview window
+		popupSourceView(tvsTreeSearch.GetColValue(iter, mapListStoreColumns["idx"]).(int))
+
 	}
 }
 
@@ -99,7 +72,7 @@ func ButtonCreatVendorClicked() {
 	var checked []string
 	if tvsTreeVendor != nil {
 		if tvsTreeVendor.CountRows() > 0 {
-			if checked, _, err = tvsTreeVendor.GetTree(0, 2); err == nil {
+			if checked, _, err = tvsTreeVendor.GetTreeCol(includeMap["chk"], includeMap["path"]); err == nil {
 				err = buildVendorDir(checked)
 			}
 		}
@@ -121,14 +94,12 @@ func FileChooserSelectDirFileSet(fcb *gtk.FileChooserButton) {
 	var fi os.FileInfo
 	var err error
 
-	if fi, err = os.Stat(fcb.GetFilename()); !os.IsNotExist(err) && fi.IsDir() {
+	if fi, err = os.Stat(fcb.GetFilename()); err == nil && fi.IsDir() {
 		mainOptions.LastProjFilename = fcb.GetFilename()
-		buildVendorList(mainOptions.LastProjFilename)
+		err = buildVendorList(mainOptions.LastProjFilename)
 	}
 
-	if err != nil {
-		log.Fatal(err)
-	}
+	Logger.Log(err, "FileChooserSelectDirFileSet")
 }
 
 // Display AboutBox

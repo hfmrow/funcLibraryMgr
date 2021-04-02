@@ -1,20 +1,20 @@
 {
 	"ProgInfos": {
 		"Name": "Functions \u0026 Library Manager",
-		"Version": "v1.0",
+		"Version": "v1.1",
 		"Creat": "H.F.M",
 		"MainObjStructName": "mainObjects",
 		"GladeXmlFilename": "assets/glade/main.glade",
 		"TranslateFilename": "/media/syndicate/storage/Documents/dev/go/src/github.com/hfmrow/funcLibraryMgr/translate.go",
-		"ProjectRootDir": "/media/syndicate/storage/Documents/dev/go/src/github.com/hfmrow/funcLibraryMgr",
-		"GohProjFile": "Functions Library Manager.proj"
+		"ProjectRootDir": "github.com/hfmrow/go-func-lib-mgr",
+		"GohProjFile": "go-func-lib-mgr.proj"
 	},
 	"Language": {
 		"LangNameLong": "English",
 		"LangNameShrt": "eng",
 		"Author": "H.F.M",
 		"Date": "Sun, 06 Oct 2019 23:19:44",
-		"Updated": "Thu, 05 Nov 2020 00:20:34",
+		"Updated": "Wed, 02 Dec 2020 21:33:34",
 		"Contributors": [
 			""
 		]
@@ -25,13 +25,13 @@
 		"SkipEmptyName": true,
 		"DoBackup": true
 	},
-	"ObjectsCount": 24,
+	"ObjectsCount": 28,
 	"Objects": [
 		{
 			"Class": "GtkButton",
 			"Id": "ButtonCreatVendor",
 			"Label": "Make vendor directory",
-			"Tooltip": "\u003ci\u003e\u003cspan background=\"#EDD400FF\"\u003eWhat it's mean:\u003c/span\u003e\u003c/i\u003e\nVendoring is the act of making your own copy of the\n3rd party packages your project is using. Those copies\nare traditionally placed inside each project and then\nsaved in the project repository inside a \u003cb\u003evendor\u003c/b\u003e\ndirectory.",
+			"Tooltip": "\u003ci\u003e\u003cspan background=\"#EDD400FF\"\u003eWhat it's means:\u003c/span\u003e\u003c/i\u003e\nVendoring is the act of making your own copy of the\n3rd party packages your project is using. Those copies\nare traditionally placed inside each project and then\nsaved in the project repository inside a \u003cb\u003evendor\u003c/b\u003e\ndirectory.",
 			"Text": "",
 			"Uri": "",
 			"Comment": "",
@@ -70,7 +70,7 @@
 			"Class": "GtkButton",
 			"Id": "ButtonRefreshLibraryData",
 			"Label": "Refresh libraries",
-			"Tooltip": "Refresh the list of functions/structure of each file\ncontained inside the chosen libraries.\n\n\u003cspan background=\"#FCE94FFF\"\u003e\u003cb\u003eNotice\u003c/b\u003e: all targeted libraries must be well formatted\nusing go format function. That mean there is no error inside\ncode and it  is ready to use).\u003c/span\u003e",
+			"Tooltip": "Refresh the list of functions/structure of each file\ncontained inside the chosen libraries.\n\n\u003cspan background=\"#FCE94FFF\"\u003e\u003cb\u003eNotice\u003c/b\u003e: all targeted libraries must be well formatted\nusing go format function. That means there is no error inside\ncode and it  is ready to use).\u003c/span\u003e",
 			"Text": "",
 			"Uri": "",
 			"Comment": "",
@@ -249,6 +249,45 @@
 			"Idx": 16
 		},
 		{
+			"Class": "GtkScrolledWindow",
+			"Id": "ScrolledWindowExclude",
+			"Label": "",
+			"Tooltip": "",
+			"Text": "",
+			"Uri": "",
+			"Comment": "",
+			"LabelMarkup": false,
+			"LabelWrap": false,
+			"TooltipMarkup": false,
+			"Idx": 17
+		},
+		{
+			"Class": "GtkScrolledWindow",
+			"Id": "ScrolledWindowInclude",
+			"Label": "",
+			"Tooltip": "",
+			"Text": "",
+			"Uri": "",
+			"Comment": "",
+			"LabelMarkup": false,
+			"LabelWrap": false,
+			"TooltipMarkup": false,
+			"Idx": 18
+		},
+		{
+			"Class": "GtkSourceView",
+			"Id": "Source",
+			"Label": "",
+			"Tooltip": "",
+			"Text": "",
+			"Uri": "",
+			"Comment": "",
+			"LabelMarkup": false,
+			"LabelWrap": false,
+			"TooltipMarkup": false,
+			"Idx": 19
+		},
+		{
 			"Class": "GtkToggleButton",
 			"Id": "SourceToggleButtonMapWidth",
 			"Label": "Fixed map width",
@@ -259,7 +298,7 @@
 			"LabelMarkup": false,
 			"LabelWrap": false,
 			"TooltipMarkup": false,
-			"Idx": 17
+			"Idx": 20
 		},
 		{
 			"Class": "GtkToggleButton",
@@ -272,7 +311,7 @@
 			"LabelMarkup": false,
 			"LabelWrap": false,
 			"TooltipMarkup": false,
-			"Idx": 18
+			"Idx": 21
 		},
 		{
 			"Class": "GtkSpinButton",
@@ -285,7 +324,20 @@
 			"LabelMarkup": false,
 			"LabelWrap": false,
 			"TooltipMarkup": true,
-			"Idx": 19
+			"Idx": 22
+		},
+		{
+			"Class": "GtkStatusbar",
+			"Id": "Statusbar",
+			"Label": "",
+			"Tooltip": "",
+			"Text": "",
+			"Uri": "",
+			"Comment": "",
+			"LabelMarkup": false,
+			"LabelWrap": false,
+			"TooltipMarkup": false,
+			"Idx": 23
 		},
 		{
 			"Class": "GtkTreeView",
@@ -298,7 +350,7 @@
 			"LabelMarkup": false,
 			"LabelWrap": false,
 			"TooltipMarkup": true,
-			"Idx": 20
+			"Idx": 24
 		},
 		{
 			"Class": "GtkTreeView",
@@ -311,7 +363,7 @@
 			"LabelMarkup": false,
 			"LabelWrap": false,
 			"TooltipMarkup": false,
-			"Idx": 21
+			"Idx": 25
 		},
 		{
 			"Class": "GtkTreeView",
@@ -324,7 +376,7 @@
 			"LabelMarkup": false,
 			"LabelWrap": false,
 			"TooltipMarkup": true,
-			"Idx": 22
+			"Idx": 26
 		},
 		{
 			"Class": "GtkTreeView",
@@ -337,7 +389,7 @@
 			"LabelMarkup": false,
 			"LabelWrap": false,
 			"TooltipMarkup": true,
-			"Idx": 23
+			"Idx": 27
 		}
 	],
 	"Sentences": {

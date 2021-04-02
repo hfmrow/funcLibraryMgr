@@ -1,6 +1,6 @@
-# Functions Library Manager v1.0
+# Functions Library Manager v1.1.4
 
-#### Last update 2020-11-06
+#### Last update 2021-04-02
 
 *This program is designed for **Golang** users to **find** and **view** **functions**/**methods**/**structures** through defined libraries. It also allows you to create a vendor directory in a specified project.*
 
@@ -49,11 +49,11 @@ Take a look at [H.F.M repositories](https://github.com/hfmrow/) for others usefu
 
 ### Functionalities
 
-- Searching and viewing functions/methods/structures.
-- Creation of 'vendor' directory to facilitate further projects compilation without issue.
-- Allow the displaying of preview with highlighted capabilities.
-- A map that allows you to view the content of the text and allows easy navigation through it.
-- Source code highlighting for multiple languages.
+- Search and display of *functions* / *methods* / *structures* exported or not, in selected local libraries.
+- Creation of a "vendor" directory to facilitate future compilations of your projects without problem by copying all the libraries used in it, in this way, even if the libraries have changed (become incompatible) or disappeared, your program can still have access to it. Possibility to include (or not) the libraries according to your wishes.
+- Allows you to preview the source code (which was found) with a highlight capability spanning multiple languages.
+- A map that allows you to see all the content of the code found and allows easy navigation through it.
+- Easily navigate to the * functions * / * methods * / * structures * tree and simply display the "comment" it contains using the tooltip display.
 - Each function have his tool-tip for explanations.
 
 *This is the main screen, and children*
@@ -64,11 +64,11 @@ Take a look at [H.F.M repositories](https://github.com/hfmrow/) for others usefu
 
 - Be sure you have golang installed in right way. [Go installation](https://golang.org/doc/install).
 
-- Open terminal window and at command prompt, type: `go get github.com/hfmrow/funcLibraryMgr`
+- Open terminal window and at command prompt, type: `go get github.com/hfmrow/go-func-lib-mgr
 
 - See [Gotk3 Installation instructions](https://github.com/gotk3/gotk3/wiki#installation) for gui installation instruction.
 
--  [gotk3\_gtksource](https://github.com/hfmrow/gotk3_gtksource) is also required.
+- [gotk3\_gtksource](https://github.com/hfmrow/gotk3_gtksource) is also required.
 
 - To change gtk3 interface you need to use the ```devMode = true``` to disable embedding assets. see below ...
 
@@ -96,13 +96,13 @@ This operation indicate that externals data (Image/Icons) must be embedded into 
 
 | Name                                                       | Version / Info / Name                          |
 | ---------------------------------------------------------- | ---------------------------------------------- |
-| GOLANG                                                     | V1.15.3 -> GO111MODULE="off", GOPROXY="direct" |
+| GOLANG                                                     | V1.16.2 -> GO111MODULE="off", GOPROXY="direct" |
 | DISTRIB                                                    | LinuxMint Xfce                                 |
 | VERSION                                                    | 20                                             |
 | CODENAME                                                   | ulyana                                         |
 | RELEASE                                                    | #46-Ubuntu SMP Fri Jul 10 00:24:02 UTC 2020    |
 | UBUNTU_CODENAME                                            | focal                                          |
-| KERNEL                                                     | 5.8.0-25-generic                               |
+| KERNEL                                                     | 5.8.0-48-generic                               |
 | HDWPLATFORM                                                | x86_64                                         |
 | GTK+ 3                                                     | 3.24.20                                        |
 | GLIB 2                                                     | 2.64.3                                         |

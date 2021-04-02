@@ -94,34 +94,34 @@ type TreeViewStructure struct {
 	Columns         []column
 	ColumnsMinWidth int // Set a minimum width to avoid a warning gtk
 
-	// TODO check out this ...
+	// TODO MAY CAUSE WHOLE FREEZE SOMETIME (undefined)
 	// When "HasTooltip" is true, this function is launched,
 	// Case of use: display tooltip according to rows currently hovered.
-	// returned "bool" mean display or not the tooltip.
+	// returned "bool" means display or not the tooltip.
 	CallbackTooltipFunc func(iter *gtk.TreeIter, path *gtk.TreePath, column *gtk.TreeViewColumn, tooltip *gtk.Tooltip) bool
-	HasTooltip          bool
+	HasTooltip,
+	// Signify that we will use 'query-tooltip' signal callback
+	UseQueryTooltip bool
 
 	// Function to call when the selection has (possibly) changed.
 	SelectionChangedFunc func()
 
-	/*	The functions below are not used from this library, they are *
-	 *	described here as a reminder to use in your own source code. */
+	// This function is called (if not nil) each time a column value is changed.
+	CallbackOnSetColValue func(iter *gtk.TreeIter, col int, value interface{})
+
 	// Used for gtk.Model.ForEach functions
-	ModelForEachFunc func(model *gtk.TreeModel, path *gtk.TreePath, iter *gtk.TreeIter, userData ...interface{}) bool
+	ModelForEachFunc func(model *gtk.TreeModel, path *gtk.TreePath, iter *gtk.TreeIter) bool
+
 	// Used for gtk.TreeSelection.SetSelectFunction
-	SelectFunction func(selection *gtk.TreeSelection, model *gtk.TreeModel, path *gtk.TreePath, selected bool, userData ...interface{}) bool
+	SelectFunction func(selection *gtk.TreeSelection, model *gtk.TreeModel, path *gtk.TreePath, selected bool) bool
+
 	// Used for gtk.TreeSelection.ForEachFunc
-	SelectionForEachFunc func(model *gtk.TreeModel, path *gtk.TreePath, iter *gtk.TreeIter, userData ...interface{})
+	SelectionForEachFunc func(model *gtk.TreeModel, path *gtk.TreePath, iter *gtk.TreeIter)
 
 	// Used to substract from Y coordinates when using tooltip
 	headerHeight int
 	// Used to determine wich TreeModel we work with.
 	StoreType gtk.ITreeModel
-
-	// Used to Block/UnBlock signal from Toggle object during modifications
-	cellRendererToggleSignalHandle glib.SignalHandle
-	// Used to Block/UnBlock signal from Text object during modifications
-	cellRendererTextSignalHandle glib.SignalHandle
 
 	colTypeSl []glib.Type
 }
@@ -134,23 +134,31 @@ type column struct {
 	Resizable bool
 	Expand    bool
 	Visible   bool
+
 	// Attributes with layout: "text", "markup", "pixbuf", "combo", "progress", "spinner", "active" (toggle button)
 	// Attributes without layout: "pointer", "integer", "uint64", "int64"
 	Attribute string
 
-	// Direct access to the GtkTreeViewColumn
-	Column  *gtk.TreeViewColumn
-	ColType glib.Type
+	// Direct access to the GtkTreeViewColumn and his CellRenderer
+	Column       *gtk.TreeViewColumn
+	ColType      glib.Type
+	CellRenderer gtk.ICellRenderer
 
 	// There is some default function defined for cell edition, normally, you don't have to define it yourself.
 	// But in the case where you need specific operations, you can build you own edition function.
-	EditTextFunc func(cellRendererText *gtk.CellRendererText, path, text string, col int) // "text"
-	// Conditional function: the "EditTextFunc" is launched if condition is respected. Default return true
-	EditTextCondFunc func(cellRendererText *gtk.CellRendererText, path string, col int) bool // "active" (toggle button)
+	EditTextFunc   func(cellRendererText *gtk.CellRendererText, path, text string) // "text"
+	EditActiveFunc func(cellRendererToggle *gtk.CellRendererToggle, path string)   // "active" (toggle button)
 
-	EditActiveFunc func(cellRendererToggle *gtk.CellRendererToggle, path string, col int) // "active" (toggle button)
-	// Conditional function: the "EditActiveFunc" is launched if condition is respected. Default return true
-	EditActiveCondFunc func(cellRendererToggle *gtk.CellRendererToggle, path string, col int) bool // "active" (toggle button)
+	// Functions below require a type assertion that the CellRenderer type comes from,
+	// e.g: cellRenderer.(*Gtk.CellRendererText).
+	// Generic conditional edition function. The 'values' can be nonexistant, unique or multiple and sometimes,
+	// require a type assertion in callback, that depend on which CellRenderer type the,'signal' come from.
+	EditConditionFunc func(cellRenderer interface{}, path string, col int, values ...interface{}) bool
+
+	// Callback function and flag that permit to write cell on cancel 'text'
+	// both must be defined before 'store' initialisation.
+	WriteOnCancel         bool
+	WriteOnCancelCallback func(text string) bool // Usually used for confirmation dialog
 }
 
 // GetHeaderButton: Retrieve the button that assigned to the column header.
@@ -183,7 +191,12 @@ func TreeViewStructureNew(treeView *gtk.TreeView, multiselection, activateSingle
 	tvs.TreeView = treeView
 	tvs.ClearAll()
 	tvs.ColumnsMinWidth = 13 // Set a minimum width to avoid a warning gtk
+
 	tvs.HasTooltip = true
+
+	tvs.CallbackTooltipFunc = nil /*func(iter *gtk.TreeIter, path *gtk.TreePath, column *gtk.TreeViewColumn, tooltip *gtk.Tooltip) bool {
+		return false
+	}*/
 
 	if tvs.Selection, err = tvs.TreeView.GetSelection(); err != nil {
 		return nil, fmt.Errorf("Unable to get gtk.TreeSelection: %s\n", err.Error())
@@ -206,16 +219,23 @@ func (tvs *TreeViewStructure) StoreSetup(store gtk.ITreeModel) (err error) {
 	tvs.StoreType = store
 	tvs.headerHeight = -1
 
-	// Removing existing columns if exists ...
+	// Removing existing columns if there is ...
 	for idx := int(tvs.TreeView.GetNColumns()) - 1; idx > -1; idx-- {
 		tvs.TreeView.RemoveColumn(tvs.TreeView.GetColumn(idx))
 	}
 
 	// Tooltip setup
 	if tvs.HasTooltip {
+
 		tvs.TreeView.SetProperty("has-tooltip", true)
-		tvs.TreeView.Connect("query-tooltip", tvs.treeViewQueryTooltip)
+
+		if tvs.UseQueryTooltip {
+			// TODO Disabled to show if issue (freeze) with gdpf stop occuring
+			tvs.TreeView.Connect("query-tooltip", tvs.treeViewQueryTooltip)
+		}
+
 	} else {
+
 		tvs.TreeView.SetProperty("has-tooltip", false)
 	}
 
@@ -236,6 +256,33 @@ func (tvs *TreeViewStructure) StoreSetup(store gtk.ITreeModel) (err error) {
 	}
 
 	return tvs.buildStore()
+}
+
+// buildStore: Build ListStore or TreeStore object. Depending on provided
+// object type in "StoreType" variable.
+func (tvs *TreeViewStructure) buildStore() (err error) {
+
+	switch tvs.StoreType.(type) {
+	case *gtk.ListStore: // Create the ListStore.
+		if tvs.ListStore, err = gtk.ListStoreNew(tvs.colTypeSl...); err != nil {
+			return fmt.Errorf("Unable to create ListStore: %v", err)
+		}
+		tvs.Model = &tvs.ListStore.TreeModel
+		tvs.TreeView.SetModel(tvs.ListStore)
+
+	case *gtk.TreeStore: // Create the TreeStore.
+		if tvs.TreeStore, err = gtk.TreeStoreNew(tvs.colTypeSl...); err != nil {
+			return fmt.Errorf("Unable to create TreeStore: %v", err)
+		}
+		tvs.Model = &tvs.TreeStore.TreeModel
+		tvs.TreeView.SetModel(tvs.TreeStore)
+
+	}
+	// Emitted whenever the selection has (possibly, RTFM) changed.
+	if tvs.SelectionChangedFunc != nil { // link to callback function if exists.
+		tvs.Selection.Connect("changed", tvs.SelectionChangedFunc)
+	}
+	return err
 }
 
 /*******************************\
@@ -270,6 +317,7 @@ func (tvs *TreeViewStructure) InsertColumn(name, attribute string, pos int, edit
 func (tvs *TreeViewStructure) AddColumn(name, attribute string, editable, readOnly,
 	sortable, resizable, expand, visible bool) {
 
+	// col := column{Name: name, Attribute: attrMap[attribute], Editable: editable, ReadOnly: readOnly,
 	col := column{Name: name, Attribute: attribute, Editable: editable, ReadOnly: readOnly,
 		Sortable: sortable, Resizable: resizable, Expand: expand, Visible: visible}
 	tvs.Columns = append(tvs.Columns, col)
@@ -304,7 +352,7 @@ func (tvs *TreeViewStructure) insertColumn(colIdx int) (colType glib.Type, err e
 			cellRenderer,
 			tvs.Columns[colIdx].Attribute,
 			colIdx); err == nil {
-
+			tvs.Columns[colIdx].CellRenderer = cellRenderer    // Store de CellRenderer used by this column
 			tvs.Columns[colIdx].Column = column                // store column object to main struct.
 			column.SetMinWidth(tvs.ColumnsMinWidth)            // Set a minimum width (13) to avoid a warning gtk
 			column.SetExpand(tvs.Columns[colIdx].Expand)       // Set expand option
@@ -320,13 +368,13 @@ func (tvs *TreeViewStructure) insertColumn(colIdx int) (colType glib.Type, err e
 	attribute := tvs.Columns[colIdx].Attribute
 	switch {
 	case attribute == "active": // "toggle"
-		var cellRenderer *gtk.CellRendererToggle
 
-		if cellRenderer, err = gtk.CellRendererToggleNew(); err == nil {
+		var cellRendererToggle *gtk.CellRendererToggle
+		if cellRendererToggle, err = gtk.CellRendererToggleNew(); err == nil {
 
 			// Define DEFAULT *conditional* function for checkbox edition if is not user defined
-			if tvs.Columns[colIdx].EditActiveCondFunc == nil {
-				tvs.Columns[colIdx].EditActiveCondFunc = func(cellRendererToggle *gtk.CellRendererToggle, path string, col int) bool {
+			if tvs.Columns[colIdx].EditConditionFunc == nil {
+				tvs.Columns[colIdx].EditConditionFunc = func(cellRenderer interface{}, path string, col int, values ...interface{}) bool {
 					return true
 				}
 			}
@@ -334,14 +382,12 @@ func (tvs *TreeViewStructure) insertColumn(colIdx int) (colType glib.Type, err e
 			// An edit function may be user defined before structure initialisation,
 			// if not, this one, is set as the default edit function for checkboxes.
 			if tvs.Columns[colIdx].EditActiveFunc == nil {
-				tvs.Columns[colIdx].EditActiveFunc = func(cellRendererToggle *gtk.CellRendererToggle, path string, col int) {
-					if !tvs.Columns[col].ReadOnly {
+				tvs.Columns[colIdx].EditActiveFunc = func(cellRenderer *gtk.CellRendererToggle, path string) {
+					if !tvs.Columns[colIdx].ReadOnly {
 
 						// Conditional function: the "EditActiveFunc" is launched if condition is respected
-						if tvs.Columns[colIdx].EditActiveCondFunc(cellRendererToggle, path, col) {
+						if tvs.Columns[colIdx].EditConditionFunc(cellRendererToggle, path, colIdx) {
 
-							// Block the signal to proceed with the modifications without being disturbed by recursive changes
-							// cellRendererToggle.HandlerBlock(tvs.cellRendererToggleSignalHandle)
 							var (
 								err        error
 								currState  bool
@@ -350,16 +396,18 @@ func (tvs *TreeViewStructure) insertColumn(colIdx int) (colType glib.Type, err e
 							)
 
 							if currIter, err = tvs.Model.GetIterFromString(path); err == nil {
-								currState = tvs.GetColValue(currIter, col).(bool)
-								if err = tvs.SetColValue(currIter, col, !currState); err == nil {
+								currState = tvs.GetColValue(currIter, colIdx).(bool)
+								if err = tvs.SetColValue(currIter, colIdx, !currState); err == nil {
 									// Change the state of the children if it exists
 									if tvs.Model.IterHasChild(currIter) {
-										tvs.changeChildrenTreeState(path, currIter, col, !currState)
+										tvs.changeChildrenTreeState(path, currIter, colIdx, !currState)
 									}
+
 									// Get parent if exits
 									for tvs.Model.IterParent(parentIter, currIter) {
+										// if tvs.Model.IterParent(parentIter, currIter) {
 										// Change parent state if all child are checked, otherwise, uncheck it
-										if err = tvs.SetColValue(parentIter, col, tvs.allChildsChecked(parentIter, col)); err == nil {
+										if err = tvs.SetColValue(parentIter, colIdx, tvs.AllChildsCheckedState(parentIter, colIdx, false)); err == nil {
 											currIter = parentIter
 											parentIter = new(gtk.TreeIter)
 										}
@@ -367,115 +415,158 @@ func (tvs *TreeViewStructure) insertColumn(colIdx int) (colType glib.Type, err e
 								}
 							}
 							if err != nil {
-								log.Fatalf("Unable to edit (toggle) cell col %d, path %s: %s\n", col, path, err.Error())
+								log.Fatalf("Unable to edit (toggle) cell col %d, path %s: %s\n", colIdx, path, err.Error())
 							}
-							// UnBlock the signal.
-							// cellRendererToggle.HandlerUnblock(tvs.cellRendererToggleSignalHandle)
 						}
 					}
 				}
 			}
 
 			if err == nil {
-				if tvs.cellRendererToggleSignalHandle, err = cellRenderer.Connect("toggled", tvs.Columns[colIdx].EditActiveFunc, colIdx); err == nil {
-					if err = renderCell(cellRenderer, colIdx); err == nil {
-						colType = glib.TYPE_BOOLEAN
-					}
+				cellRendererToggle.Connect("toggled", tvs.Columns[colIdx].EditActiveFunc)
+				if err = renderCell(cellRendererToggle, colIdx); err == nil {
+					colType = glib.TYPE_BOOLEAN
 				}
+
 			}
 		}
 	case attribute == "spinner":
-		var cellRenderer *gtk.CellRendererSpinner
-		if cellRenderer, err = gtk.CellRendererSpinnerNew(); err == nil {
-			cellRenderer.SetProperty("editable", tvs.Columns[colIdx].Editable)
-			if err = renderCell(cellRenderer, colIdx); err == nil {
+		var cellRendererSpinner *gtk.CellRendererSpinner
+		if cellRendererSpinner, err = gtk.CellRendererSpinnerNew(); err == nil {
+			cellRendererSpinner.SetProperty("editable", tvs.Columns[colIdx].Editable)
+			if err = renderCell(cellRendererSpinner, colIdx); err == nil {
 				colType = glib.TYPE_FLOAT
 			}
 		}
 	case attribute == "progress":
-		var cellRenderer *gtk.CellRendererProgress
-		if cellRenderer, err = gtk.CellRendererProgressNew(); err == nil {
-			cellRenderer.SetProperty("editable", tvs.Columns[colIdx].Editable)
-			if err = renderCell(cellRenderer, colIdx); err == nil {
+		var cellRendererProgress *gtk.CellRendererProgress
+		if cellRendererProgress, err = gtk.CellRendererProgressNew(); err == nil {
+			cellRendererProgress.SetProperty("editable", tvs.Columns[colIdx].Editable)
+			if err = renderCell(cellRendererProgress, colIdx); err == nil {
 				colType = glib.TYPE_OBJECT
 			}
 		}
 	case attribute == "pixbuf":
-		var cellRenderer *gtk.CellRendererPixbuf
-		if cellRenderer, err = gtk.CellRendererPixbufNew(); err == nil {
-			if err = renderCell(cellRenderer, colIdx); err == nil {
+		var cellRendererPixbuf *gtk.CellRendererPixbuf
+		if cellRendererPixbuf, err = gtk.CellRendererPixbufNew(); err == nil {
+			if err = renderCell(cellRendererPixbuf, colIdx); err == nil {
 				colType = glib.TYPE_OBJECT
 			}
 		}
 	case attribute == "combo":
-		var cellRenderer *gtk.CellRendererCombo
-		if cellRenderer, err = gtk.CellRendererComboNew(); err == nil {
-			cellRenderer.SetProperty("editable", tvs.Columns[colIdx].Editable)
-			if err = renderCell(cellRenderer, colIdx); err == nil {
+		var cellRendererCombo *gtk.CellRendererCombo
+		if cellRendererCombo, err = gtk.CellRendererComboNew(); err == nil {
+			cellRendererCombo.SetProperty("editable", tvs.Columns[colIdx].Editable)
+			if err = renderCell(cellRendererCombo, colIdx); err == nil {
 				colType = glib.TYPE_OBJECT
 			}
 		}
 	case attribute == "text" || attribute == "markup":
-		var cellRenderer *gtk.CellRendererText
-		cellRenderer, err = gtk.CellRendererTextNew()
-		cellRenderer.SetProperty("editable", tvs.Columns[colIdx].Editable)
+		var cellRendererText *gtk.CellRendererText
+		if cellRendererText, err = gtk.CellRendererTextNew(); err == nil {
+			cellRendererText.SetProperty("editable", tvs.Columns[colIdx].Editable)
+			/*
+			 *
+			 */
 
-		// Define DEFAULT *conditional* function for text edition if is not user defined
-		if tvs.Columns[colIdx].EditTextCondFunc == nil {
-			tvs.Columns[colIdx].EditTextCondFunc = func(cellRendererText *gtk.CellRendererText, path string, col int) bool {
-				return true
-			}
-		}
-
-		// An edit function may be user-defined before structure initialisation,
-		// if not, this one, is set as the DEFAULT edit function for text cells.
-		if tvs.Columns[colIdx].EditTextFunc == nil {
-			tvs.Columns[colIdx].EditTextFunc = func(cellRendererText *gtk.CellRendererText, path, text string, col int) {
-				if !tvs.Columns[col].ReadOnly {
-
-					// Block the signal to proceed with the modifications without being disturbed by recursive changes
-					// cellRendererText.HandlerBlock(tvs.cellRendererTextSignalHandle)
-
-					// Conditional function: the "EditTextFunc" is launched if condition is respected
-					if tvs.Columns[colIdx].EditTextCondFunc(cellRendererText, path, col) {
-
-						var iter *gtk.TreeIter
-						if iter, err = tvs.Model.GetIterFromString(path); err == nil {
-							switch tvs.StoreType.(type) {
-							case *gtk.ListStore:
-								if err = tvs.ListStore.SetValue(iter, col, text); err == nil {
-									tvs.Modified = true
+			if tvs.Columns[colIdx].WriteOnCancel {
+				// Ask to record entry if the 'editing-canceled' signal appear (like focus out treeview)
+				cellRendererText.Connect("editing-started",
+					func(cellRendererText *gtk.CellRendererText, editable gtk.ICellEditable, path string) {
+						var PreviousText string
+						// Transtype ICellEditable interface to GtkCellEditable object
+						cEditable, _ := editable.(*gtk.CellEditable)
+						// Retrieve a GtkEntry from GtkCellEditable
+						entry := cEditable.ToEntry()
+						PreviousText, _ = entry.GetText()
+						entry.Connect("editing-done", func() {
+							text, _ := entry.GetText()
+							entry.SetText(text)
+							// If there is no change in the cell, simply exit
+							if PreviousText == text {
+								return
+							}
+							// On 'editing-canceled' signal, handling it to get Gtkentry content and write it to GtkListStore
+							if value, _ := cEditable.GetProperty("editing-canceled"); value.(bool) {
+								if tvs.Columns[colIdx].WriteOnCancelCallback != nil {
+									if !tvs.Columns[colIdx].WriteOnCancelCallback(text) {
+										return
+									}
 								}
-							case *gtk.TreeStore:
-								if err = tvs.TreeStore.SetValue(iter, col, text); err == nil {
-									tvs.Modified = true
+
+								iter, _ := tvs.Model.GetIterFromString(path)
+								tvs.SetColValue(iter, colIdx, text)
+							}
+						})
+					})
+			}
+
+			/*
+			 *
+			 */
+			// Define DEFAULT *conditional* function for text edition if is not user defined
+			if tvs.Columns[colIdx].EditConditionFunc == nil {
+				tvs.Columns[colIdx].EditConditionFunc = func(cellRenderer interface{}, path string, col int, values ...interface{}) bool {
+					return true
+				}
+			}
+
+			// An edit function may be user-defined before structure initialisation,
+			// if not, this one, is set as the DEFAULT edit function for text cells.
+			if tvs.Columns[colIdx].EditTextFunc == nil {
+
+				tvs.Columns[colIdx].EditTextFunc = func(cellRenderer *gtk.CellRendererText, path string, text string) {
+					if !tvs.Columns[colIdx].ReadOnly {
+
+						// Conditional function: the "EditTextFunc" is launched if condition is respected
+						if tvs.Columns[colIdx].EditConditionFunc(cellRendererText, path, colIdx, text) {
+
+							var iter *gtk.TreeIter
+							if iter, err = tvs.Model.GetIterFromString(path); err == nil {
+								switch tvs.StoreType.(type) {
+								case *gtk.ListStore:
+									if err = tvs.ListStore.SetValue(iter, colIdx, text); err == nil {
+										tvs.Modified = true
+									}
+								case *gtk.TreeStore:
+									if err = tvs.TreeStore.SetValue(iter, colIdx, text); err == nil {
+										tvs.Modified = true
+									}
 								}
 							}
+							if err != nil {
+								log.Fatalf("Unable to edit (text) cell col %v, path %v, text %v: %v\n", colIdx, path, text, err)
+							}
 						}
-						if err != nil {
-							log.Fatalf("Unable to edit (text) cell col %d, path %s, text %s: %s\n", col, path, text, err.Error())
-						}
-						// UnBlock the signal.
-						// cellRendererText.HandlerUnblock(tvs.cellRendererTextSignalHandle)
 					}
 				}
 			}
-		}
-		if err == nil {
-			if tvs.cellRendererTextSignalHandle, err = cellRenderer.Connect("edited", tvs.Columns[colIdx].EditTextFunc, colIdx); err == nil {
-				if err = renderCell(cellRenderer, colIdx); err == nil {
+
+			if err == nil {
+				cellRendererText.Connect("edited", tvs.Columns[colIdx].EditTextFunc)
+				if err = renderCell(cellRendererText, colIdx); err == nil {
 					colType = glib.TYPE_STRING
 				}
 			}
 		}
+
+	// For these Type, there is no layout
 	case attribute == "pointer": // Pointer
+
 		colType = glib.TYPE_POINTER
+
 	case attribute == "integer": // INT
+
 		colType = glib.TYPE_INT
+
 	case attribute == "uint64": // UINT64
+
 		colType = glib.TYPE_UINT64
+
 	case attribute == "int64": // INT64
+
 		colType = glib.TYPE_INT64
+
 	default:
 		err = fmt.Errorf("Error on setting attribute: %s is not implemented or inexistent.\n", tvs.Columns[colIdx].Attribute)
 	}
@@ -487,76 +578,6 @@ func (tvs *TreeViewStructure) insertColumn(colIdx int) (colType glib.Type, err e
 	}
 	return colType, err
 }
-
-// buildStore: Build ListStore or TreeStore object. Depending on provided
-// object type in "StoreType" variable.
-func (tvs *TreeViewStructure) buildStore() (err error) {
-
-	switch tvs.StoreType.(type) {
-	case *gtk.ListStore: // Create the ListStore.
-		if tvs.ListStore, err = gtk.ListStoreNew(tvs.colTypeSl...); err != nil {
-			return fmt.Errorf("Unable to create ListStore: %v", err)
-		}
-		tvs.Model = &tvs.ListStore.TreeModel
-		tvs.TreeView.SetModel(tvs.ListStore)
-
-	case *gtk.TreeStore: // Create the TreeStore.
-		if tvs.TreeStore, err = gtk.TreeStoreNew(tvs.colTypeSl...); err != nil {
-			return fmt.Errorf("Unable to create TreeStore: %v", err)
-		}
-		tvs.Model = &tvs.TreeStore.TreeModel
-		tvs.TreeView.SetModel(tvs.TreeStore)
-
-	}
-	// Emitted whenever the selection has (possibly, RTFM) changed.
-	if tvs.SelectionChangedFunc != nil { // link to callback function if exists.
-		_, err = tvs.Selection.Connect("changed", tvs.SelectionChangedFunc)
-	}
-	return err
-}
-
-// //StoreSetupStandalone: setup a ListStore or TreeStore as standalone
-// func (tvs *TreeViewStructure) StoreSetupStandalone(inStore gtk.ITreeModel) (err error) {
-// 	switch inStore.(type) {
-// 	case *gtk.ListStore: // Create the ListStore.
-// 		if inStore, err = gtk.ListStoreNew(tvs.colTypeSl...); err != nil {
-// 			return fmt.Errorf("StoreSetupStandalone ListStore: %v", err)
-// 		}
-// 	case *gtk.TreeStore: // Create the TreeStore.
-// 		if inStore, err = gtk.TreeStoreNew(tvs.colTypeSl...); err != nil {
-// 			return fmt.Errorf("StoreSetupStandalone TreeStore: %v", err)
-// 		}
-// 	}
-// 	return
-// }
-
-// //StoreSetupStandalone: setup a ListStore or TreeStore as standalone
-// func (tvs *TreeViewStructure) StoreChangeCurrent(inStore gtk.ITreeModel) (err error) {
-// 	tvs.StoreType = inStore
-// 	switch inStore.(type) {
-// 	case *gtk.ListStore: // Create the ListStore.
-// 		tvs.ListStore.
-// 	case *gtk.TreeStore: // Create the TreeStore.
-// 		if inStore, err = gtk.TreeStoreNew(tvs.colTypeSl...); err != nil {
-// 			return fmt.Errorf("StoreSetupStandalone TreeStore: %v", err)
-// 		}
-// 	}
-// 	return
-// }
-
-/**********************\
-*    Path Functions     *
-* Func that            *
-* applied to Path       *
-************************/
-
-// // ScrollToCell: "column" argument set to nul, mean column 0,
-// func (tvs *TreeViewStructure) scrollToCell(path *gtk.TreePath, column *gtk.TreeViewColumn, align bool, xalign, yalign float32) {
-// 	if column == nil {
-// 		column = tvs.Columns[0].Column
-// 	}
-// 	tvs.TreeView.ScrollToCell(path, column, align, xalign, yalign)
-// }
 
 /**********************\
 *    Iters Functions    *
@@ -570,7 +591,7 @@ func (tvs *TreeViewStructure) GetSelectedIters() (iters []*gtk.TreeIter) {
 	iters = make([]*gtk.TreeIter, tvs.Selection.CountSelectedRows())
 	var count int
 	// tvs.Selection.SelectedForEach(func(model *gtk.TreeModel, path *gtk.TreePath, iter *gtk.TreeIter, userData interface{}) {
-	tvs.Selection.SelectedForEach(func(model *gtk.TreeModel, path *gtk.TreePath, iter *gtk.TreeIter, userData ...interface{}) {
+	tvs.Selection.SelectedForEach(func(model *gtk.TreeModel, path *gtk.TreePath, iter *gtk.TreeIter) {
 		iters[count] = iter
 		count++
 	})
@@ -585,7 +606,7 @@ func (tvs *TreeViewStructure) GetSelectedIters() (iters []*gtk.TreeIter) {
 func (tvs *TreeViewStructure) GetSelectedPaths() (paths []*gtk.TreePath) {
 	paths = make([]*gtk.TreePath, tvs.Selection.CountSelectedRows())
 	var count int
-	tvs.Selection.SelectedForEach(func(model *gtk.TreeModel, path *gtk.TreePath, iter *gtk.TreeIter, userData ...interface{}) {
+	tvs.Selection.SelectedForEach(func(model *gtk.TreeModel, path *gtk.TreePath, iter *gtk.TreeIter) {
 		paths[count] = path
 		count++
 	})
@@ -669,19 +690,56 @@ func (tvs *TreeViewStructure) GetColValue(iter *gtk.TreeIter, col int) (value in
 	return
 }
 
+// SetColValueWithCallback: set the value to iter for a specific column as an interface type.
+// A callback function is called giving the possibility to perform interactive operations.
+// func (tvs *TreeViewStructure) SetColValueWithCallback (iter *gtk.TreeIter, col int, value interface{}) (err error) {
+
+// 	var (
+// 		oldVal   *glib.Value
+// 		oldValue interface{}
+// 	)
+
+// 	switch tvs.StoreType.(type) {
+// 	case *gtk.ListStore:
+// 		if oldVal, err = tvs.ListStore.GetValue(iter, col); err == nil {
+// 			if oldValue, err = oldVal.GoValue(); err == nil {
+// 				err = tvs.ListStore.SetValue(iter, col, value)
+// 			}
+// 		}
+// 	case *gtk.TreeStore:
+// 		if oldVal, err = tvs.TreeStore.GetValue(iter, col); err == nil {
+// 			if oldValue, err = oldVal.GoValue(); err == nil {
+// 				err = tvs.TreeStore.SetValue(iter, col, value)
+// 			}
+// 		}
+// 	}
+// 	if err == nil {
+// 		tvs.Modified = true
+// 		if tvs.CallbackOnSetColValue != nil {
+// 			tvs.CallbackOnSetColValue(iter, col, value, oldValue)
+// 			return
+// 		}
+// 	}
+// 	return
+// }
+
 // SetColValue: Set value to iter for a specific column as interface type.
 func (tvs *TreeViewStructure) SetColValue(iter *gtk.TreeIter, col int, value interface{}) (err error) {
+
 	switch tvs.StoreType.(type) {
 	case *gtk.ListStore:
+
 		err = tvs.ListStore.SetValue(iter, col, value)
 	case *gtk.TreeStore:
+
 		err = tvs.TreeStore.SetValue(iter, col, value)
 	}
-	if err != nil {
-		log.Fatalf("SetColValue: %s\n", err.Error())
-		return
+	if err == nil {
+		tvs.Modified = true
+		if tvs.CallbackOnSetColValue != nil {
+			tvs.CallbackOnSetColValue(iter, col, value)
+		}
 	}
-	tvs.Modified = true
 	return
 }
 
@@ -707,8 +765,11 @@ func (tvs *TreeViewStructure) GetColValuePath(path *gtk.TreePath, col int) (valu
 // SetColValue: Set value to path for a specific column as interface type.
 // Note: should be used only if there is no other choice, prefer using iter to set values.
 func (tvs *TreeViewStructure) SetColValuePath(path *gtk.TreePath, col int, goValue interface{}) (err error) {
+
 	var iter *gtk.TreeIter
+
 	switch tvs.StoreType.(type) {
+
 	case *gtk.ListStore:
 		if iter, err = tvs.ListStore.GetIter(path); err == nil {
 			err = tvs.ListStore.SetValue(iter, col, goValue)
@@ -737,7 +798,10 @@ func (tvs *TreeViewStructure) CountRows() (count int) {
 		count = tvs.Model.IterNChildren(nil)
 	case *gtk.TreeStore:
 		// two different way because TreeStore return the number of toplevel nodes intead of ListStore
-		tvs.Model.ForEach(func(model *gtk.TreeModel, path *gtk.TreePath, iter *gtk.TreeIter, userData ...interface{}) bool {
+
+		// TODO May cause 'fatal error: invalid pointer found on stack' when used intensivly (querytooltip)
+		// Find another way to doing the same thing
+		tvs.Model.ForEach(func(model *gtk.TreeModel, path *gtk.TreePath, iter *gtk.TreeIter) bool {
 			count++
 			return false
 		})
@@ -767,7 +831,7 @@ func (tvs *TreeViewStructure) AddRow(parent *gtk.TreeIter, row ...interface{}) (
 // InsertRow: Insert a row to the Store (defined by type of "StoreType" variable).
 // "parent" is useless for ListStore, if its set to nil on TreeStore,
 // it will create a new parent otherwise the new iter will be a child of it.
-// "insertPos" indicate row number for insertion, set to -1 mean append at the end.
+// "insertPos" indicate row number for insertion, set to -1 means append at the end.
 func (tvs *TreeViewStructure) InsertRow(parent *gtk.TreeIter, insertPos int, row ...interface{}) (iter *gtk.TreeIter, err error) {
 
 	iter = new(gtk.TreeIter)
@@ -871,42 +935,93 @@ func (tvs *TreeViewStructure) DuplicateRow(inIter, parent *gtk.TreeIter) (iter *
 
 // RemoveSelectedRows: Delete entries from selected iters or from given iters.
 func (tvs *TreeViewStructure) RemoveSelectedRows(iters ...*gtk.TreeIter) (count int) {
+
 	if len(iters) == 0 {
 		iters = tvs.GetSelectedIters()
 	}
-	return tvs.RemoveRow(iters...)
+
+	tmpIters := make([]*gtk.TreeIter, len(iters))
+	// Reverse iters position to avoid error on remove.
+	// (when iter is removed, the next come to be invalid)
+	countIters := len(iters) - 1
+	for idx := countIters; idx >= 0; idx-- {
+		tmpIters[countIters-idx] = iters[idx]
+	}
+
+	return tvs.RemoveRows(tmpIters...)
+}
+
+// RemoveRows: Unified remove iter(s) function
+func (tvs *TreeViewStructure) RemoveRows(iters ...*gtk.TreeIter) (count int) {
+
+	switch tvs.StoreType.(type) {
+	case *gtk.ListStore:
+		for _, iter := range iters {
+			if tvs.ListStore.Remove(iter) {
+				count++
+			}
+		}
+	case *gtk.TreeStore:
+		for _, iter := range iters {
+			if tvs.TreeStore.Remove(iter) {
+				count++
+			}
+		}
+	}
+	if count > 0 {
+		tvs.Modified = true
+	}
+	return
+}
+
+// RemoveRowsPath: Unified remove path(s) function. accept '*gtk.TreePath' & 'TreePath' as string
+func (tvs *TreeViewStructure) RemoveRowsPath(paths ...interface{}) (count int, err error) {
+
+	var iter *gtk.TreeIter
+
+	for _, p := range paths {
+
+		switch path := p.(type) {
+
+		case *gtk.TreePath:
+			iter, err = tvs.Model.GetIter(path)
+		case string:
+			iter, err = tvs.Model.GetIterFromString(path)
+		}
+
+		if err != nil {
+			break
+		}
+
+		switch tvs.StoreType.(type) {
+
+		case *gtk.ListStore:
+			if tvs.ListStore.Remove(iter) {
+				count++
+			}
+		case *gtk.TreeStore:
+			if tvs.TreeStore.Remove(iter) {
+				count++
+			}
+		}
+	}
+
+	if count > 0 {
+		tvs.Modified = true
+	}
+	return
 }
 
 // GetSelectedRows: Get entries from selected iters as [][]string.
 func (tvs *TreeViewStructure) GetSelectedRows() (outSlice [][]string, err error) {
 	outSlice = make([][]string, tvs.Selection.CountSelectedRows())
 	var count int
-	tvs.Selection.SelectedForEach(func(model *gtk.TreeModel, path *gtk.TreePath, iter *gtk.TreeIter, userData ...interface{}) {
+	tvs.Selection.SelectedForEach(func(model *gtk.TreeModel, path *gtk.TreePath, iter *gtk.TreeIter) {
 		if outSlice[count], err = tvs.GetRow(iter); err != nil {
 			err = fmt.Errorf("Unable to get selected row: %d\n", count)
 		}
 		count++
 	})
-	return
-}
-
-// RemoveRow: Unified remove iter(s) function
-func (tvs *TreeViewStructure) RemoveRow(iters ...*gtk.TreeIter) (count int) {
-	switch tvs.StoreType.(type) {
-	case *gtk.ListStore:
-		for _, iter := range iters {
-			tvs.ListStore.Remove(iter)
-			count++
-		}
-	case *gtk.TreeStore:
-		for _, iter := range iters {
-			tvs.TreeStore.Remove(iter)
-			count++
-		}
-	}
-	if count > 0 {
-		tvs.Modified = true
-	}
 	return
 }
 
@@ -1018,153 +1133,206 @@ func (tvs *TreeViewStructure) ClearAll() (err error) {
 	return
 }
 
-// StoreToSlice: Retrieve all the rows values from a "StoreType" as [][]string
-func (tvs *TreeViewStructure) StoreToStringSlice() (outSlice [][]string, err error) {
-	var tmpSlice []string
-	// Foreach Function
-	var foreachFunc = func(model *gtk.TreeModel, path *gtk.TreePath, iter *gtk.TreeIter, userData ...interface{}) bool {
-		if tmpSlice, err = tvs.GetRow(iter); err == nil {
-			outSlice = append(outSlice, tmpSlice)
-		} else {
-			return true
-		}
-		return false
-	}
-	// Gathering columns names
-	for _, col := range tvs.Columns {
-		tmpSlice = append(tmpSlice, col.Column.GetTitle())
-	}
-	outSlice = append(outSlice, tmpSlice)
-	// Retrieve values
-	tvs.Model.ForEach(foreachFunc)
-
-	return outSlice, err
-}
-
-// Replaced with this Below
-// // StoreToIface: Retrieve all the rows values from a "StoreType" as [][]interface{}
-// func (tvs *TreeViewStructure) StoreToIfaceSlice() (outIface [][]interface{}, err error) {
-// 	var tmpIface []interface{}
-// 	// Foreach Function
-// 	count := tvs.CountRows()
-// 	count = count
-
-// 	var retrieveValuesForeachFunc = func(model *gtk.TreeModel, path *gtk.TreePath, iter *gtk.TreeIter, userData ...interface{}) bool {
-// 		if tmpIface, err = tvs.GetRowIface(iter); err == nil {
-// 			outIface = append(outIface, tmpIface)
-// 		} else {
-// 			return true
-// 		}
-// 		return false
-// 	}
-// 	// Gathering columns names
-// 	for _, col := range tvs.Columns { // Gathering of columns names
-// 		tmpIface = append(tmpIface, col.Column.GetTitle())
-// 	}
-// 	outIface = append(outIface, tmpIface)
-// 	// Retrieve values
-// 	tvs.Model.ForEach(retrieveValuesForeachFunc)
-
-// 	return outIface, err
-// }
-
-// GetTreeViewIface: retrieve whole content of a TreeView as [][]interface
-func (tvs *TreeViewStructure) GetTreeViewIface() (treeContent [][]interface{}, err error) {
-	var row []interface{}
-	tvs.Model.ForEach(func(model *gtk.TreeModel, path *gtk.TreePath, iter *gtk.TreeIter, userData ...interface{}) bool {
-		if row, err = tvs.GetRowIface(iter); err == nil {
-			treeContent = append(treeContent, row)
+// StoreToStringSlice: Retrieve all the rows values from a 'StoreType'
+// as [][]string
+func (tvs *TreeViewStructure) StoreToStringSlice() (out [][]string, err error) {
+	var row []string
+	tvs.Model.ForEach(func(model *gtk.TreeModel, path *gtk.TreePath, iter *gtk.TreeIter) bool {
+		if row, err = tvs.GetRow(iter); err == nil {
+			out = append(out, row)
 		} else {
 			return true
 		}
 		return false
 	})
-
 	return
 }
 
-// GetTree: get selected and unselected items.
-// This method retrieve data of a [single column].
-// Use GetTreeMulti to retrieve multiple columns.
-func (tvs *TreeViewStructure) GetTree(toggleCol, dataCols int) (checked, unChecked []string, err error) {
+// GetTreeViewIface: retrieve whole content of a TreeView as
+// [][]interface
+func (tvs *TreeViewStructure) StoreToIfaceSlice() (out [][]interface{}, err error) {
 	var row []interface{}
-
-	tvs.TreeStore.ForEach(func(model *gtk.TreeModel, path *gtk.TreePath, iter *gtk.TreeIter, userData ...interface{}) bool {
-		row, err = tvs.GetRowIface(iter)
-
-		if row[toggleCol].(bool) {
-			checked = append(checked, row[dataCols].(string))
+	tvs.Model.ForEach(func(model *gtk.TreeModel, path *gtk.TreePath, iter *gtk.TreeIter) bool {
+		if row, err = tvs.GetRowIface(iter); err == nil {
+			out = append(out, row)
 		} else {
-			unChecked = append(unChecked, row[dataCols].(string))
+			return true
 		}
 		return false
 	})
-	return checked, unChecked, err
+	return
+}
+
+// ColNamesToStringSlice:  Retrieve column names as string slice
+func (tvs *TreeViewStructure) ColNamesToStringSlice() (outSlice []string) {
+	for _, col := range tvs.Columns {
+		outSlice = append(outSlice, col.Column.GetTitle())
+	}
+	return
+}
+
+// GetTreeCol: This method retrieve data from a [single column] of the current
+// 'GtkTreeStore' as []string. Use GetTreeFullIface to retrieve multiple columns
+// at once.
+func (tvs *TreeViewStructure) GetTreeCol(toggleCol, dataCols int) (checked, unChecked []string, err error) {
+	var row []interface{}
+
+	tvs.TreeStore.ForEach(func(model *gtk.TreeModel, path *gtk.TreePath, iter *gtk.TreeIter) bool {
+
+		if row, err = tvs.GetRowIface(iter); err == nil {
+
+			if row[toggleCol].(bool) {
+				checked = append(checked, row[dataCols].(string))
+			} else {
+				unChecked = append(unChecked, row[dataCols].(string))
+			}
+		} else {
+
+			err = fmt.Errorf("GetTreeCol: %v", err)
+			return true
+		}
+
+		return false
+	})
+	return
+}
+
+// GetTreeFullIface: Retrieve the whole content of the current 'GtkTreeStore'.
+func (tvs *TreeViewStructure) GetTreeFullIface(toggleCol int) (checked, unChecked [][]interface{}, err error) {
+	var row []interface{}
+
+	tvs.TreeStore.ForEach(func(model *gtk.TreeModel, path *gtk.TreePath, iter *gtk.TreeIter) bool {
+
+		if row, err = tvs.GetRowIface(iter); err == nil {
+
+			if row[toggleCol].(bool) {
+				checked = append(checked, row)
+			} else {
+				unChecked = append(unChecked, row)
+			}
+		} else {
+
+			err = fmt.Errorf("GetTreeFullIface: %v", err)
+			return true
+		}
+
+		return false
+	})
+	return
+}
+
+// GetTreeParentIface: return the 'row' holded by the parent of 'iter' or from itself
+// whether having children. After call with success, provided 'iter' argument points
+// to the one the line came from.
+func (tvs *TreeViewStructure) GetTreeParentIface(iter *gtk.TreeIter) ([]interface{}, error) {
+
+	if !tvs.Model.IterHasChild(iter) {
+
+		parent := new(gtk.TreeIter)
+		if !tvs.Model.IterParent(parent, iter) {
+			return nil, fmt.Errorf("Unable to get parent iter from child")
+		}
+		iter = parent
+	}
+	return tvs.GetRowIface(iter)
 }
 
 // AddTree: This function, add a full tree to a TreeStore, childs will be added to
-// parent' tree if exists. Each treeview entry handle a checkbox and a name only. i.e:
-// i.e: "iFace" = []interface{"github.com","hfmrow","gtk3Import","pango"},
-// will add all nodes for this tree to column "pathCol" and a checkbox with
-// "stateDefault" at column nbr "toggleCol".
-// The returned variable "outIter", pointer to the iter
-// of the last entry, useful for manually adding more entries to columns if needed.
-func (tvs *TreeViewStructure) AddTree(toggleCol, pathCol int, stateDefault bool, iFace ...interface{}) (outIter *gtk.TreeIter, err error) {
-	var iterate, childsCount int
-	var tmpIter *gtk.TreeIter
-	var ok bool
-	var value string
-	var pathSplitted []interface{}
+// parent's tree if exists or to a new created parent.
+// Each entry handle a checkbox and a name only.
+//
+// e.g: in 3 calls to 'AddTree'
+// 'iFace' = []interface{"github.com", "hfmrow", "gtk3Import", "pango.go"}
+// 'iFace' = []interface{"github.com", "hfmrow", "gtk3Import", "main.go"}
+// 'iFace' = []interface{"github.com", "hfmrow", "gtk3Import", "view.go"}
+// add all nodes for this tree to column 'filepathCol' and checkbox at 'toggleCol'
+//
+// []  github.com
+// []  ╰── hfmrow
+// []      ╰── gtk3Import
+// []          ├── pango.go
+// []          ├── main.go
+// []          ╰── view.go
+//
+// - 'stateDefault' default value for 'toggleCol'.
+// - 'callbackParentCreation' can be 'nil', otherwise, this callback corresponds
+//   to the creation of the iter during the construction of the tree, allow to control
+//   (allows to manually add some usefull data to the row).
+// - The returned 'outIter', target the iter used by the the last entry, useful for
+//   manually adding more entries to columns if needed.
+func (tvs *TreeViewStructure) AddTree(
+	toggleCol,
+	filepathCol int,
+	stateDefault bool,
+	callbackParentCreation func(store *gtk.TreeStore, iter *gtk.TreeIter, currentAddIdx int, iRow *[]interface{}) bool,
+	iFace ...interface{}) (outIter *gtk.TreeIter, err error) {
+
+	var (
+		iterate,
+		childsCount int
+		tmpIter      *gtk.TreeIter
+		ok           bool
+		value        string
+		pathSplitted []interface{}
+	)
 
 	// addItem: It only does what the name says.
 	var addItem = func(toAdd string, iter *gtk.TreeIter) (tmpIter *gtk.TreeIter) {
+
 		var err error
 		tmpIter = tvs.TreeStore.Append(iter)
+
 		if err = tvs.TreeStore.SetValue(tmpIter, toggleCol, stateDefault); err == nil {
-			err = tvs.TreeStore.SetValue(tmpIter, pathCol, toAdd)
+			if err = tvs.TreeStore.SetValue(tmpIter, filepathCol, toAdd); callbackParentCreation != nil && err == nil {
+
+				if !callbackParentCreation(tvs.TreeStore, tmpIter, iterate, &pathSplitted) {
+					// remove created iter and quit if callback is not true
+					tvs.TreeStore.Remove(tmpIter)
+					err = fmt.Errorf("callbackParentCreation: has rejected the 'iter' creation")
+				}
+				// if iterate > len(pathSplitted)-1 {
+				// 	tmpIter = nil
+				// }
+			}
 		}
 		if err != nil {
-			err = errors.New(fmt.Sprintf("AddTree: Unable to addItem. %s\n", err.Error()))
+			log.Printf("AddTree: Unable to addItem. %s\n", err.Error())
 			tmpIter = nil
 		}
 		return
 	}
 
-	// Check current entry type and do what we need with values (checked, notChecked or undefined)
-	// var getCurrentState = func() /*(outBool bool)*/ {
-	// 	switch iFace[0].(type) {
-	// 	case bool:
-	// 		stateDefault = iFace[0].(bool) // Get bool value for checkbox.
-	// 		pathSplitted = iFace[1:]       // Get full splitted path ingnoring 1st element.
-	// 	default:
-	// 		pathSplitted = iFace // Get full splitted path, checkbox value set as default.
-	// 	}
-	// }
-
 	// findCreatFirstParent: Add or find first parent that match "name" and return it's iter.
 	var findCreatFirstParent = func(name string) (tmpIter *gtk.TreeIter, ok bool, err error) {
+
 		if len(name) > 0 {
 			tmpIter, ok = tvs.TreeStore.GetIterFirst()
+
 			for ok {
-				value := tvs.GetColValue(tmpIter, pathCol).(string)
+				value := tvs.GetColValue(tmpIter, filepathCol).(string)
 				if value == name {
 					return
 				}
 				ok = tvs.TreeStore.IterNext(tmpIter)
-			} // Nothing found, then create it
+			}
+
+			// Nothing found, then create it
 			tmpIter = addItem(pathSplitted[iterate].(string), outIter)
 			ok = tmpIter != nil
+
 		} else {
 			err = errors.New("findCreatFirstParent: Could not proceed with empty parent.")
 		}
 		return
 	}
+
 	// searchMatch: Walk trought iter to retrieve the one matching "toMatch".
 	var searchMatch = func(toMatch string, outIter *gtk.TreeIter) (childIter *gtk.TreeIter, ok bool) {
+
 		childIter = new(gtk.TreeIter)
 		ok = tvs.TreeStore.IterChildren(outIter, childIter)
 		for ok {
-			value = tvs.GetColValue(childIter, pathCol).(string)
+			value = tvs.GetColValue(childIter, filepathCol).(string)
 			if value == toMatch {
 				return
 			}
@@ -1173,15 +1341,13 @@ func (tvs *TreeViewStructure) AddTree(toggleCol, pathCol int, stateDefault bool,
 		return
 	}
 
-	// Get chkBox state
-	// getCurrentState()
-
-	pathSplitted = iFace // Get full splitted path, checkbox value set as default.
+	pathSplitted = iFace
 
 	// parse "dirPath" entry into treestore.
 	if outIter, ok, err = findCreatFirstParent(pathSplitted[0].(string)); err == nil {
+
 		for ok {
-			value = tvs.GetColValue(outIter, pathCol).(string)
+			value = tvs.GetColValue(outIter, filepathCol).(string)
 			if value == pathSplitted[iterate] {
 				childsCount = tvs.Model.IterNChildren(outIter)
 				if childsCount > 0 {
@@ -1192,6 +1358,10 @@ func (tvs *TreeViewStructure) AddTree(toggleCol, pathCol int, stateDefault bool,
 					if tmpIter, ok = searchMatch(pathSplitted[iterate].(string), outIter); !ok {
 						outIter = addItem(pathSplitted[iterate].(string), outIter)
 						ok = outIter != nil
+
+						// last := pathSplitted[len(pathSplitted)-1].(string)
+						// fmt.Printf("item: %v, last: %v\n", pathSplitted[iterate], pathSplitted[len(pathSplitted)-1])
+
 					} else {
 						outIter = tmpIter
 					}
@@ -1203,10 +1373,15 @@ func (tvs *TreeViewStructure) AddTree(toggleCol, pathCol int, stateDefault bool,
 					}
 					outIter = addItem(pathSplitted[iterate].(string), outIter)
 					ok = outIter != nil
+
+					// fmt.Println(pathSplitted[iterate].(string))
+
 				}
 			} else {
 				if tmpIter, ok = searchMatch(pathSplitted[iterate].(string), outIter); ok {
 					outIter = addItem(pathSplitted[iterate].(string), tmpIter)
+					ok = outIter != nil
+					// fmt.Println(pathSplitted[iterate].(string))
 				}
 			}
 		}
@@ -1222,15 +1397,6 @@ func (tvs *TreeViewStructure) ColValuesStringSliceToIfaceSlice(inSlice ...string
 	}
 	return
 }
-
-// // ColValuesIfaceToIfaceSlice: Convert interface list to []interface, for simplify adding text rows
-// func (tvs *TreeViewStructure) ColValuesIfaceToIfaceSlice(inSlice ...interface{}) (outIface []interface{}) {
-// 	outIface = make([]interface{}, len(inSlice))
-// 	for idx, data := range inSlice {
-// 		outIface[idx] = data
-// 	}
-// 	return
-// }
 
 // glibType:  glib value type List structure.
 var glibType = map[glib.Type]string{
@@ -1258,36 +1424,29 @@ var glibType = map[glib.Type]string{
 	84: "glib.TYPE_VARIANT",
 }
 
-// // getStringGlibType: Retrieve the string of glib value type.
-// func (tvs *TreeViewStructure) getStringGlibType(t glib.Type) string {
-// 	for val, str := range glibType {
-// 		if val == int(t) {
-// 			return str
-// 		}
-// 	}
-// 	return "Unnowen type"
-// }
-
 /************************\
 *    Helpers Functions    *
 * Made to simplify some  *
 * more complex functions  *
 **************************/
 
+// TODO MAY CAUSE WHOLE FREEZE SOMETIME (undefined)
 // treeViewQueryTooltip: function to display tooltip according to rows currently hovered
+// Note: return TRUE if tooltip should be shown right now, FALSE otherwise
 func (tvs *TreeViewStructure) treeViewQueryTooltip(tw *gtk.TreeView, x, y int, KeyboardMode bool, tooltip *gtk.Tooltip) bool {
-	if tvs.CountRows() > 0 && tvs.HasTooltip && tvs.CallbackTooltipFunc != nil {
-		var (
-			path    *gtk.TreePath
-			column  *gtk.TreeViewColumn
-			isBlank bool
-		)
-		// we must substract header height to "y" position to get the correct path.
-		if path, column, _, _, isBlank = tvs.TreeView.IsBlankAtPos(x, y-tvs.getHeaderHeight()); !isBlank {
-			if iter, err := tvs.Model.GetIter(path); err == nil {
-				return tvs.CallbackTooltipFunc(iter, path, column, tooltip)
-			} else {
-				log.Printf("treeViewQueryTooltip:GetIter: %s\n", err.Error())
+
+	if tvs.CallbackTooltipFunc != nil && tvs.HasTooltip {
+
+		if tvs.CountRows() > 0 {
+			// we need to substract header height to "y" position to get the correct path.
+			if path, column, _, _, isBlank := tvs.TreeView.IsBlankAtPos(x, y-tvs.getHeaderHeight()); !isBlank {
+				if iter, err := tvs.Model.GetIter(path); err == nil {
+
+					return tvs.CallbackTooltipFunc(iter, path, column, tooltip)
+				} else {
+
+					log.Printf("treeViewQueryTooltip:GetIter: %s\n", err.Error())
+				}
 			}
 		}
 	}
@@ -1297,7 +1456,7 @@ func (tvs *TreeViewStructure) treeViewQueryTooltip(tw *gtk.TreeView, x, y int, K
 // getHeaderHeight: Used to get height of header to use with [TreeView.IsBlankAtPos],
 // It is needed to decrease y pos by height of cells to get a correct path value.
 func (tvs *TreeViewStructure) getHeaderHeight() (height int) {
-	if tvs.headerHeight < 0 { // That mean that is launched only at the first call.
+	if tvs.headerHeight < 0 { // That means that is launched only at the first call.
 		for gtk.EventsPending() {
 			gtk.MainIteration() // Wait for pending events (until the widget is redrawn)
 		}
@@ -1322,11 +1481,11 @@ func (tvs *TreeViewStructure) getStringCellValueByType(glibValue *glib.Value) (v
 	if actualType, _, err = glibValue.Type(); err == nil {
 		switch actualType {
 
-		// Strings
+		// String
 		case glib.TYPE_STRING:
-			valueString, err = glibValue.GetString()
+			valueString, _ = glibValue.GetString()
 
-			// Numeric values
+		// Numeric values: int, uint64, int64
 		case glib.TYPE_INT64, glib.TYPE_UINT64, glib.TYPE_INT:
 			if valueIface, err = glibValue.GoValue(); err == nil {
 				switch val := valueIface.(type) {
@@ -1335,11 +1494,11 @@ func (tvs *TreeViewStructure) getStringCellValueByType(glibValue *glib.Value) (v
 				}
 			}
 
-			// Pointer, just say that it's what's it ...
+		// Pointer, just say that it's what's it ...
 		case glib.TYPE_POINTER:
-			valueString = "pointer"
+			valueString = fmt.Sprintf("%v", glibValue.GetPointer())
 
-			// Boolean
+		// Boolean
 		case glib.TYPE_BOOLEAN:
 			if valueIface, err = glibValue.GoValue(); err == nil {
 				if valueIface.(bool) {
@@ -1349,7 +1508,7 @@ func (tvs *TreeViewStructure) getStringCellValueByType(glibValue *glib.Value) (v
 				}
 			}
 
-			// Need to be implemented
+		// Need to be implemented
 		default:
 			err = fmt.Errorf("getStringCellValueByType: Type %s, not yet implemented\n", glibType[actualType])
 		}
@@ -1381,21 +1540,102 @@ func (tvs *TreeViewStructure) changeChildrenTreeState(path string, parent *gtk.T
 	return
 }
 
-// allChildsChecked: check all childs and return false if one of them
-// is unchecked. Otherwise, true is returned
-func (tvs *TreeViewStructure) allChildsChecked(parentIter *gtk.TreeIter, col int) bool {
+// IsNotEmpty: Returns 'true' if the TreeView is not empty.
+func (tvs *TreeViewStructure) IsNotEmpty() bool {
+	_, ok := tvs.Model.GetIterFirst()
+	return ok
+}
+
+// AllChildsCheckedState: verify all childs and childs of childs then return false
+// if one of them correspond to 'state' parameter. Otherwise, true is returned.
+func (tvs *TreeViewStructure) AllChildsCheckedState(parentIter *gtk.TreeIter, col int, state bool) bool {
+
 	nChilds := tvs.Model.IterNChildren(parentIter)
 	if nChilds > 0 {
 		newChild := new(gtk.TreeIter)
 		for idx := 0; idx < nChilds; idx++ {
 			if tvs.Model.IterNthChild(newChild, parentIter, idx) {
-				if !tvs.GetColValue(newChild, col).(bool) {
+
+				// if tvs.Model.IterHasChild(newChild) {
+				// 	if !tvs.AllChildsCheckedState(newChild, col, state) {
+				// 		return true
+				// 	} else {
+				// 		return false
+				// 	}
+				// }
+
+				if state == tvs.GetColValue(newChild, col).(bool) {
 					return false
 				}
 			}
 		}
 	}
 	return true
+
+	// if tvs.Model.IterHasChild(parentIter) {
+	// if !tvs.AllChildsCheckedState(parentIter, col, state) {
+	// 	return true
+	// }
+	// }
+}
+
+/* Same as above but with recurse capabilities */
+
+// // allChildsChecked: verify all childs and return false if one of them
+// // is unchecked. Otherwise, true is returned
+// func (tvs *TreeViewStructure) allChildsChecked(parentIter *gtk.TreeIter, col int) bool {
+// 	nChilds := tvs.Model.IterNChildren(parentIter)
+// 	if nChilds > 0 {
+// 		newChild := new(gtk.TreeIter)
+// 		for idx := 0; idx < nChilds; idx++ {
+// 			if tvs.Model.IterNthChild(newChild, parentIter, idx) {
+// 				if !tvs.GetColValue(newChild, col).(bool) {
+// 					return false
+// 				}
+// 			}
+// 			if tvs.Model.IterHasChild(newChild) {
+// 				tvs.allChildsChecked(newChild, col)
+// 			}
+// 		}
+// 	}
+// 	return true
+// }
+
+// ChildsPropagateColValue: Add value to parent and to all childs at specific column.
+// If 'value' is nil, no modification will be done but all children are returned.
+func (tvs *TreeViewStructure) ChildsPropagateColValue(parentIter *gtk.TreeIter, col int, value interface{}) (modifiedIters []*gtk.TreeIter, err error) {
+
+	// Add value to parent if not nil
+	if value != nil {
+		if err = tvs.SetColValue(parentIter, col, value); err != nil {
+			return
+		}
+	}
+	modifiedIters = append(modifiedIters, parentIter)
+
+	nChilds := tvs.Model.IterNChildren(parentIter)
+	// Add value to his childs
+	if nChilds > 0 {
+		for idx := 0; idx < nChilds; idx++ {
+			newChild := new(gtk.TreeIter)
+			if tvs.Model.IterNthChild(newChild, parentIter, idx) {
+				if value != nil {
+					if err = tvs.SetColValue(newChild, col, value); err != nil {
+						return
+					}
+				}
+				if tvs.Model.IterHasChild(newChild) {
+					if mi, err := tvs.ChildsPropagateColValue(newChild, col, value); err == nil {
+						modifiedIters = append(modifiedIters, mi...)
+					} else {
+						return modifiedIters, err
+					}
+				}
+				modifiedIters = append(modifiedIters, newChild)
+			}
+		}
+	}
+	return
 }
 
 /********************\
@@ -1443,7 +1683,7 @@ func (tvs *TreeViewStructure) forEach() {
 	var model gtk.ITreeModel
 	var ipath *gtk.TreePath
 	var foreachFunc gtk.TreeModelForeachFunc
-	foreachFunc = func(model *gtk.TreeModel, path *gtk.TreePath, iter *gtk.TreeIter, userData ...interface{}) bool {
+	foreachFunc = func(model *gtk.TreeModel, path *gtk.TreePath, iter *gtk.TreeIter) bool {
 		if ipath, err = model.GetPath(iter); err == nil {
 			fmt.Printf("path: %s, iter: %s\n", path.String(), ipath.String())
 		} else {
@@ -1498,7 +1738,7 @@ func (tvs *TreeViewStructure) indices() {
 	var model gtk.ITreeModel
 	var ipath, jpath *gtk.TreePath
 	var foreachFunc gtk.TreeModelForeachFunc
-	foreachFunc = func(model *gtk.TreeModel, path *gtk.TreePath, iter *gtk.TreeIter, userData ...interface{}) bool {
+	foreachFunc = func(model *gtk.TreeModel, path *gtk.TreePath, iter *gtk.TreeIter) bool {
 		if ipath, err = model.GetPath(iter); err == nil {
 			indices := ipath.GetIndices()
 			jpath, _ = gtk.TreePathNewFromIndicesv(indices)

@@ -15,12 +15,12 @@ import (
 	"regexp"
 	"strings"
 
-	glfs "github.com/hfmrow/genLib/files"
+	glfsfs "github.com/hfmrow/genLib/files/files-operations"
 	glsg "github.com/hfmrow/genLib/strings"
 )
 
-// GoSourceFileStructure: contain AST file informations
-type GoSourceFileStructure struct {
+// GoSourceFileStruct: contain AST file informations
+type GoSourceFileStruct struct {
 	Filename string
 	Package  string
 
@@ -40,6 +40,8 @@ type GoSourceFileStructure struct {
 	fset          *token.FileSet // Positions are relative to fset.
 	tmpMethods    []function
 	varInsideFunc bool
+
+	fos *glfsfs.FilesOpStruct
 }
 
 // type ShortDescr struct{ imported } // Reserved for enduser usage ...
@@ -99,8 +101,14 @@ type content struct {
 	Comment   string
 }
 
+func GoSourceFileStructNew() (gsf *GoSourceFileStruct, err error) {
+	gsf = new(GoSourceFileStruct)
+	gsf.fos, err = glfsfs.FilesOpStructNew()
+	return
+}
+
 // GetFuncByName: Optional "unExported": empty = both.
-func (gsfs *GoSourceFileStructure) GetFuncByName(fName string, unExported ...bool) (funct *function) {
+func (gsfs *GoSourceFileStruct) GetFuncByName(fName string, unExported ...bool) (funct *function) {
 
 	for idx, fnc := range gsfs.Func {
 		if fnc.Ident.Name == fName {
@@ -112,7 +120,7 @@ func (gsfs *GoSourceFileStructure) GetFuncByName(fName string, unExported ...boo
 }
 
 // GetStructByName:
-func (gsfs *GoSourceFileStructure) GetStructByName(sName string) (stru *structure) {
+func (gsfs *GoSourceFileStruct) GetStructByName(sName string) (stru *structure) {
 
 	for idx, stc := range gsfs.Struct {
 		if stc.Ident.Name == sName {
@@ -124,7 +132,7 @@ func (gsfs *GoSourceFileStructure) GetStructByName(sName string) (stru *structur
 }
 
 // GetVarByName: "Position" contain the position in "list" and "values" fields.
-func (gsfs *GoSourceFileStructure) GetVarByName(vName string) (vari *variable) {
+func (gsfs *GoSourceFileStruct) GetVarByName(vName string) (vari *variable) {
 
 	for idx, vr := range gsfs.Var {
 		for idn, vn := range vr.Objects.List {
@@ -158,7 +166,7 @@ func varWalker(t token.Token) (kind string, ok bool) {
 }
 
 // getImportOnly:
-func (gsfs *GoSourceFileStructure) getImportOnly() (err error) {
+func (gsfs *GoSourceFileStruct) getImportOnly() (err error) {
 	if filename, err := filepath.Rel(filepath.Join(os.Getenv("GOPATH"), "src"), gsfs.Filename); err == nil {
 		// getImports
 		for _, val := range gsfs.astFile.Imports {
@@ -175,7 +183,7 @@ func (gsfs *GoSourceFileStructure) getImportOnly() (err error) {
 }
 
 // goInspect: parse go file and retrieve into structure that was found.
-func (gsfs *GoSourceFileStructure) goInspect() {
+func (gsfs *GoSourceFileStruct) goInspect() {
 	filename, _ := filepath.Rel(filepath.Join(os.Getenv("GOPATH"), "src"), gsfs.Filename)
 	gsfs.getImportOnly()
 	// Get nodes infos
@@ -232,7 +240,7 @@ func (gsfs *GoSourceFileStructure) goInspect() {
 }
 
 // getIdent:
-func (gsfs *GoSourceFileStructure) getIdent(ident *ast.Ident) (obj identObj) {
+func (gsfs *GoSourceFileStruct) getIdent(ident *ast.Ident) (obj identObj) {
 	obj.Name = ident.Name
 	if ident.Obj != nil {
 		obj.Kind = ident.Obj.Kind.String()
@@ -250,12 +258,12 @@ func (gsfs *GoSourceFileStructure) getIdent(ident *ast.Ident) (obj identObj) {
 }
 
 // getBasicLit
-func (gsfs *GoSourceFileStructure) getBasicLit(bl *ast.BasicLit) (outValue, outType string) {
+func (gsfs *GoSourceFileStruct) getBasicLit(bl *ast.BasicLit) (outValue, outType string) {
 	return bl.Value, strings.ToLower(bl.Kind.String())
 }
 
 // getAssignStmt:
-func (gsfs *GoSourceFileStructure) getAssignStmt(aStmt *ast.AssignStmt) (fld *field) {
+func (gsfs *GoSourceFileStruct) getAssignStmt(aStmt *ast.AssignStmt) (fld *field) {
 
 	var obj identObj
 	fld = new(field)
@@ -286,7 +294,7 @@ func (gsfs *GoSourceFileStructure) getAssignStmt(aStmt *ast.AssignStmt) (fld *fi
 }
 
 // getSpecs:
-func (gsfs *GoSourceFileStructure) getSpecs(specs []ast.Spec) (fld *field) {
+func (gsfs *GoSourceFileStruct) getSpecs(specs []ast.Spec) (fld *field) {
 	for _, spec := range specs {
 		var tmpStr string
 		switch s := spec.(type) {
@@ -367,7 +375,7 @@ func (gsfs *GoSourceFileStructure) getSpecs(specs []ast.Spec) (fld *field) {
 }
 
 // getArray:
-func (gsfs *GoSourceFileStructure) getArray(ary *ast.ArrayType) (fld string) {
+func (gsfs *GoSourceFileStruct) getArray(ary *ast.ArrayType) (fld string) {
 	switch fvv := ary.Elt.(type) {
 	case *ast.ArrayType:
 		switch fvvE := fvv.Elt.(type) {
@@ -385,7 +393,7 @@ func (gsfs *GoSourceFileStructure) getArray(ary *ast.ArrayType) (fld string) {
 }
 
 // getStarX:
-func (gsfs *GoSourceFileStructure) getStarX(sX ast.Expr) (fld string) {
+func (gsfs *GoSourceFileStruct) getStarX(sX ast.Expr) (fld string) {
 	switch fvX := sX.(type) {
 	case *ast.Ident:
 		fld = "*" + fvX.Name
@@ -396,7 +404,7 @@ func (gsfs *GoSourceFileStructure) getStarX(sX ast.Expr) (fld string) {
 }
 
 // getField:
-func (gsfs *GoSourceFileStructure) getFields(fields []*ast.Field) (stru structure) {
+func (gsfs *GoSourceFileStruct) getFields(fields []*ast.Field) (stru structure) {
 	for _, fList := range fields {
 		var fld field
 		for _, ident := range fList.Names {
@@ -417,7 +425,7 @@ func (gsfs *GoSourceFileStructure) getFields(fields []*ast.Field) (stru structur
 }
 
 // getStruct:
-func (gsfs *GoSourceFileStructure) getStruct(s *ast.TypeSpec) (stru structure) {
+func (gsfs *GoSourceFileStruct) getStruct(s *ast.TypeSpec) (stru structure) {
 	switch st := s.Type.(type) {
 	case *ast.StructType:
 		stru = gsfs.getFields(st.Fields.List)
@@ -429,7 +437,7 @@ func (gsfs *GoSourceFileStructure) getStruct(s *ast.TypeSpec) (stru structure) {
 	return
 }
 
-func (gsfs *GoSourceFileStructure) GetImportsOnly(filename string) (err error) {
+func (gsfs *GoSourceFileStruct) GetImportsOnly(filename string) (err error) {
 	gsfs.Filename = filename
 	if err = gsfs.loadDataFile(); err == nil {
 		err = gsfs.getImportOnly()
@@ -439,7 +447,7 @@ func (gsfs *GoSourceFileStructure) GetImportsOnly(filename string) (err error) {
 
 // GoSourceFileStructureSetup: setup and retieve information for designed file.
 // Notice: the lines numbers and offsets start at 0. Set "zero" at false to start at 1.
-func (gsfs *GoSourceFileStructure) GoSourceFileStructureSetup(filename string, zero ...bool) (err error) {
+func (gsfs *GoSourceFileStruct) GoSourceFileStructureSetup(filename string, zero ...bool) (err error) {
 	gsfs.offset = 1 // lines start at 0 (substract 1 for each offsets position)
 	if len(zero) > 0 {
 		if zero[0] {
@@ -456,12 +464,12 @@ func (gsfs *GoSourceFileStructure) GoSourceFileStructureSetup(filename string, z
 }
 
 // AppendFile:
-func (gsfs *GoSourceFileStructure) AppendFile(filename string) (err error) {
+func (gsfs *GoSourceFileStruct) AppendFile(filename string) (err error) {
 	gsfs.tmpMethods = []function{}
 	return gsfs.GoSourceFileStructureSetup(filename)
 }
 
-func (gsfs *GoSourceFileStructure) loadDataFile() (err error) {
+func (gsfs *GoSourceFileStruct) loadDataFile() (err error) {
 	// Loading data (file)
 	gsfs.fset = token.NewFileSet()
 	if gsfs.astFile, err = parser.ParseFile(gsfs.fset, gsfs.Filename, nil, parser.ParseComments); err == nil {
@@ -471,7 +479,7 @@ func (gsfs *GoSourceFileStructure) loadDataFile() (err error) {
 }
 
 // fillDeclaration:
-func (gsfs *GoSourceFileStructure) fillDeclaration() (err error) {
+func (gsfs *GoSourceFileStruct) fillDeclaration() (err error) {
 	// Setting internal variables
 	gsfs.Eol = glsg.GetTextEOL(gsfs.data)
 	gsfs.data = append(gsfs.data, []byte(gsfs.Eol)...) // Add an eol to avoid a f..k..g issue where the last line wasn't analysed
@@ -492,7 +500,7 @@ func (gsfs *GoSourceFileStructure) fillDeclaration() (err error) {
 }
 
 // getLineFromOffsets: get the line number corresponding to offsets. Notice, line number start at 0.
-func (gsfs *GoSourceFileStructure) getLineFromOffsets(sOfst, eOfst int) (lStart, lEnd int) {
+func (gsfs *GoSourceFileStruct) getLineFromOffsets(sOfst, eOfst int) (lStart, lEnd int) {
 	for lineNb, lineIdxs := range gsfs.linesIndexes {
 		switch {
 		case sOfst >= lineIdxs[0] && sOfst <= lineIdxs[1]:
@@ -510,7 +518,7 @@ func (gsfs *GoSourceFileStructure) getLineFromOffsets(sOfst, eOfst int) (lStart,
 }
 
 // getContentFromPos: fill content structure
-func (gsfs *GoSourceFileStructure) getContentFromPos(pos, end token.Pos, comment ...string) (cnt content) {
+func (gsfs *GoSourceFileStruct) getContentFromPos(pos, end token.Pos, comment ...string) (cnt content) {
 	// Set to relative offset
 	sOfst := gsfs.fset.PositionFor(pos, true).Offset
 	eOfst := gsfs.fset.PositionFor(end, true).Offset
@@ -525,7 +533,7 @@ func (gsfs *GoSourceFileStructure) getContentFromPos(pos, end token.Pos, comment
 }
 
 // astPrintToBuf: Simply display ast content for an overview of declarations. DEBUG purpose ...
-func (gsfs *GoSourceFileStructure) astPrintToBuf(saveToFilename ...string) (bytesBuf *bytes.Buffer, err error) {
+func (gsfs *GoSourceFileStruct) astPrintToBuf(saveToFilename ...string) (bytesBuf *bytes.Buffer, err error) {
 	var writer io.Writer
 	bytesBuf = new(bytes.Buffer)
 	writer = bytesBuf
@@ -533,8 +541,8 @@ func (gsfs *GoSourceFileStructure) astPrintToBuf(saveToFilename ...string) (byte
 	err = ast.Fprint(writer, gsfs.fset, gsfs.astFile, ast.NotNilFilter)
 	if len(saveToFilename) > 0 {
 		if len(saveToFilename[0]) != 0 {
-			OS := glfs.OsPermsStructNew()
-			if err = ioutil.WriteFile(saveToFilename[0], bytesBuf.Bytes(), OS.GROUP_RW|OS.USER_RW|OS.ALL_R); err == nil {
+
+			if err = gsfs.fos.WriteFile(saveToFilename[0], bytesBuf.Bytes(), gsfs.fos.Perms.File); err == nil {
 				fmt.Printf("AST file saved successfully: %s\n", saveToFilename[0])
 			} else {
 				fmt.Printf("Unable to save AST file: %s\n", err.Error())
@@ -545,7 +553,7 @@ func (gsfs *GoSourceFileStructure) astPrintToBuf(saveToFilename ...string) (byte
 }
 
 // filteringMethods: put methods with their respective structures
-func (gsfs *GoSourceFileStructure) filteringMethods() {
+func (gsfs *GoSourceFileStruct) filteringMethods() {
 	for idx, stru := range gsfs.Struct {
 		for _, mtd := range gsfs.tmpMethods {
 

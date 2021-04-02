@@ -15,7 +15,6 @@ import (
 	"errors"
 	"io"
 	"io/ioutil"
-	"log"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -75,7 +74,7 @@ func (di *DeclIndexes) GetDescr(index int) (outDesc shortDescription, ok bool) {
 // LibsInfos: Raw version of the analysed libraries.
 type LibsInfos struct {
 	Shortcut, ImportPath string
-	Ast                  *gltsgssw.GoSourceFileStructure
+	Ast                  *gltsgssw.GoSourceFileStruct
 }
 
 // shortDescription: contain description of a declaration (function, method, structure).
@@ -124,14 +123,14 @@ func (stru *Description) Read(filename string) (err error) {
 	var textFileBytes []byte
 	if textFileBytes, err = ioutil.ReadFile(filename); err == nil {
 		if err = json.Unmarshal(textFileBytes, &stru); err == nil {
-			if md5, _ := stru.getMd5Libs(); md5 != stru.LibsMd5 {
-				log.Printf("Some files in the library path have been modified\nBuilding a new AST data file ...\n")
+			if md5, err := stru.getMd5Libs(); md5 != stru.LibsMd5 {
+				if err != nil {
+					Logger.Log(err, "Read: Descriptions from file")
+				}
+				Logger.Log(err, "Some files in the library path have been modified\nBuilding a new AST data file ...")
 				stru.changed = true
 			}
 		}
-	}
-	if err != nil {
-		log.Printf("Error while reading AST data file: %s\nBuilding a new one ...\n", err.Error())
 	}
 	return
 }
@@ -145,12 +144,34 @@ func (stru *Description) Write(filename string) (err error) {
 			err = ioutil.WriteFile(filename, out.Bytes(), os.ModePerm)
 		}
 	}
+	Logger.Log(err, "Error while writing AST data file", filename)
 	return err
 }
 
 // initSourceLibs: Initiate and store the contents of the libraries
 // or check if the files have been modified since the last time.
-func initSourceLibs(sources, subDirToSkip []string) (err error) {
+func initSourceLibs(src, srcToSkip []libs) (err error) {
+
+	var sources, subDirToSkip []string
+
+	for _, lib := range src {
+		if lib.Active {
+			sources = append(sources, lib.Path)
+		}
+	}
+	for _, lib := range srcToSkip {
+		if lib.Active {
+			subDirToSkip = append(subDirToSkip, lib.Path)
+		}
+	}
+
+	// Reset all if the is no library to scan
+	if len(sources) == 0 {
+
+		desc.Desc = desc.Desc[:0]
+		tvsTreeSearch.Clear()
+		return
+	}
 
 	// Compute description filename
 	descFilename := filepath.Join(filepath.Dir(optFilename), mainOptions.LastDescFilename)
@@ -168,10 +189,8 @@ func initSourceLibs(sources, subDirToSkip []string) (err error) {
 	if desc.changed {
 		desc = Description{}
 		if len(sources) > 0 {
-			if sourcesFromAst, desc.LibsMd5, err = buildLibList(sources, append(subDirToSkip, mainOptions.DefaultExclude...)); err == nil { /*
-					if err == io.EOF {
-						return
-					} else {*/
+			if sourcesFromAst, desc.LibsMd5, err = buildLibList(sources, append(subDirToSkip, mainOptions.DefaultExclude...)); err == nil {
+
 				var globalIdx int
 				for _, sfa := range sourcesFromAst {
 					for _, f := range sfa.Ast.Func {
@@ -218,10 +237,7 @@ func initSourceLibs(sources, subDirToSkip []string) (err error) {
 						globalIdx++
 					}
 				}
-			} /*else {	// Case where there is an issuewith file, like bad go-formatting
-				err = nil
-			}*/
-			// }
+			}
 			if err == io.EOF {
 				return
 			}
@@ -229,13 +245,16 @@ func initSourceLibs(sources, subDirToSkip []string) (err error) {
 				desc.Libs = sources
 				desc.ExludedDirs = subDirToSkip
 				err = desc.Write(descFilename)
+				Logger.Log(err, "initSourceLibs/Write")
 			}
 		} else {
 			err = errors.New("There is no library to explore ...")
+			return
 		}
 	}
 
 	declIdexes = DeclIndxesNew(desc.Desc)
+	Logger.Log(err, "Error while reading AST data file. Building a new one ...")
 	return
 }
 
@@ -254,9 +273,7 @@ func IsDirOrSymlinkDir(slRoot string, slStat os.FileInfo) (slIsDir bool) {
 			}
 		}
 	}
-	if err != nil {
-		log.Printf("Unable to scan: %s\n%s\n", fName, err.Error())
-	}
+	Logger.Log(err, "Unable to scan", fName)
 	return
 }
 
@@ -288,10 +305,10 @@ func buildLibList(sources, subDirToSkip []string) (sourcesFromAst []LibsInfos, m
 								return err
 							}
 							// Get ast infos for each files.
-							gsfs := new(gltsgssw.GoSourceFileStructure)
+							gsfs, _ := gltsgssw.GoSourceFileStructNew()
 							for idx, osFile := range infosFiles {
 								if !osFile.IsDir() {
-									if filename := filepath.Join(path, osFile.Name()); filepath.Ext(filename) == ".go" {
+									if filename := filepath.Join(path, osFile.Name()); filepath.Ext(filename) == ".go" /*||	filepath.Ext(filename) == ".c" || filepath.Ext(filename) == ".h"*/ {
 										if idx == 0 {
 											if err = gsfs.GoSourceFileStructureSetup(filename); err != nil {
 												return err
@@ -354,12 +371,15 @@ func (stru *Description) getMd5Libs() (md5 string, err error) {
 							}
 							// Scan for "*.go" files inside directory.
 							if infosFiles, err = glfssf.ScanDirFileInfo(path); err != nil {
+								Logger.Log(err, "getMd5Libs/Walk/ScanDirFileInfo")
 								return err
 							}
 							for _, osFile := range infosFiles {
+
 								if !osFile.IsDir() && osFile.Mode()&os.ModeSymlink == 0 { // not dir & not symlink ?
 									if filename := filepath.Join(path, osFile.Name()); filepath.Ext(filename) == ".go" { // Is *.go file
 										if data, err = ioutil.ReadFile(filename); err == nil {
+
 											md5 += glco.Md5String(string(data)) // Concatenate md5 of each files.
 										}
 									}
@@ -375,6 +395,7 @@ func (stru *Description) getMd5Libs() (md5 string, err error) {
 	} else {
 		err = errors.New("Missing directories to be analysed ...")
 	}
+
 	return glco.Md5String(md5), err // generate global md5.
 }
 

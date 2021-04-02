@@ -39,9 +39,11 @@ type toDispTreeStore struct {
 func findInLibs(toFind string, scoreThreshold int) (out []toDispTreeStore) {
 	// Find using Fuzzy
 	if results := fuzzy.FindFrom(toFind, desc.Desc); len(results) > 0 {
+
 		var name, path, blueCol, redCol string
 		// Select color for Exported or not definition
 		var getColor = func(exported bool) (blueCol, redCol string) {
+
 			if exported {
 				blueCol = `"#2222AA"`
 				redCol = `"#AA2222"`
@@ -56,6 +58,7 @@ func findInLibs(toFind string, scoreThreshold int) (out []toDispTreeStore) {
 		sort.SliceStable(results, func(i, j int) bool {
 			return strings.ToUpper(results[i].Str) < strings.ToUpper(results[j].Str)
 		})
+
 		for _, found := range results {
 			if scoreThreshold <= found.Score {
 				disp := false

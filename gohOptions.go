@@ -1,11 +1,11 @@
 // gohOptions.go
 
 /*
-	Source file auto-generated on Thu, 05 Nov 2020 07:28:28 using Gotk3ObjHandler v1.6.5 ©2018-20 H.F.M
+	Source file auto-generated on Fri, 02 Apr 2021 08:27:58 using Gotk3 Objects Handler v1.7.5 ©2018-21 hfmrow
 	This software use gotk3 that is licensed under the ISC License:
 	https://github.com/gotk3/gotk3/blob/master/LICENSE
 
-	Copyright ©2019-20 H.F.M - Functions & Library Manager v1.0 github.com/hfmrow/funcLibraryMgr
+	Copyright ©2019-21 H.F.M - Functions & Library Manager v1.1.4 github.com/hfmrow/go-func-lib-mgr
 	This program comes with absolutely no warranty. See the The MIT License (MIT) for details:
 	https://opensource.org/licenses/mit-license.php
 */
@@ -22,6 +22,7 @@ import (
 	"github.com/gotk3/gotk3/gtk"
 
 	gltsgslv "github.com/hfmrow/genLib/tools/goSources/libVendoring"
+	gltsle "github.com/hfmrow/genLib/tools/log2file"
 
 	gidg "github.com/hfmrow/gtk3Import/dialog"
 	gimc "github.com/hfmrow/gtk3Import/misc"
@@ -32,14 +33,16 @@ import (
 )
 
 // App infos. Only this part can be modified during an update.
-var Name = "Functions & Library Manager"
-var Vers = "v1.0"
-var Descr = "This software allows you to search for a function\nin specified libraries. It also allows you to create a\n'vendor' directory for the relevant project containing\n all the imported/selected libraries used to compile\nthe targeted project successfully."
-var Creat = "H.F.M"
-var YearCreat = "2019-20"
-var LicenseShort = "This program comes with absolutely no warranty.\nSee the The MIT License (MIT) for details:\nhttps://opensource.org/licenses/mit-license.php"
-var LicenseAbrv = "License (MIT)"
-var Repository = "github.com/hfmrow/funcLibraryMgr"
+var (
+	Name         = "Functions & Library Manager"
+	Vers         = "v1.1.4"
+	Descr        = "This software allows you to search for a function\nin specified libraries. It also allows you to create a\n'vendor' directory for the relevant project containing\n all the imported/selected libraries used to compile\nthe targeted project successfully."
+	Creat        = "H.F.M"
+	YearCreat    = "2019-21"
+	LicenseShort = "This program comes with absolutely no warranty.\nSee the The MIT License (MIT) for details:\nhttps://opensource.org/licenses/mit-license.php"
+	LicenseAbrv  = "License (MIT)"
+	Repository   = "github.com/hfmrow/go-func-lib-mgr"
+)
 
 // Vars declarations
 var (
@@ -51,53 +54,91 @@ var (
 	doTempDir bool
 )
 
+type libs struct {
+	Path   string
+	Active bool
+}
+
 var (
 	sourcesFromAst []LibsInfos
 	desc           Description
 
 	// Current description index
-	indexCurrText, indexCurrTree int          // TODO Check if always needed
-	declIdexes                   *DeclIndexes // Global indexes
+	indexCurrText int
+	declIdexes    *DeclIndexes // Global indexes
 
 	/*
 	 * Library mapping
 	 */
-
+	// Treeview
 	tvsTreeSearch,
 	tvsTreeVendor,
 	tvsLibInc,
 	tvsLibExc *gitw.TreeViewStructure
 	TreeViewStructureNew = gitw.TreeViewStructureNew
 
-	statusbar  *gimc.StatusBar
-	libsVendor *gltsgslv.LibsVendor
+	// Misc
+	GetEntryText    = gits.GetEntryText
+	SpinScaleSetNew = gits.SpinScaleSetNew
 
-	dialogText *gidg.DialogBoxStructure
+	// Statusbar
+	StatusBarStructureNew = gimc.StatusBarStructureNew
+	statusbar             *gimc.StatusBar
 
-	chk *gtk.CheckButton
+	// Vendoring
+	libsVendor   *gltsgslv.LibsVendor
+	LibVendorNew = gltsgslv.LibVendorNew
 
+	// error logging
+	Logger            *gltsle.Log2FileStruct
+	Log2FileStructNew = gltsle.Log2FileStructNew
+
+	// Dialog
+	DlgMsg       = gidg.DialogMessage
+	dialogText   *gidg.DialogBoxStructure
+	DialogBoxNew = gidg.DialogBoxNew
+	chk          *gtk.CheckButton
+
+	// SourceView
 	svs                 *gitvsv.SourceViewStruct
 	SourceViewStructNew = gitvsv.SourceViewStructNew
 	markFound           *gtk.TextTag
 
-	DialogBoxNew          = gidg.DialogBoxNew
-	StatusBarStructureNew = gimc.StatusBarStructureNew
-	SpinbuttonSetValues   = gits.SpinbuttonSetValues
-
-	DlgErr = func(dsc string, err error) bool {
-		return gidg.DialogError(mainObjects.MainWindow, sts["issue"], dsc, err, devMode, true)
+	DlgErr = func(dsc string, err error) (yes bool) {
+		yes = gidg.DialogError(mainObjects.MainWindow, sts["issue"], dsc, err, devMode, true)
+		Logger.Log(err, dsc)
+		return
 	}
 
-	DlgMsg       = gidg.DialogMessage
-	GetEntryText = gits.GetEntryText
-
+	// Popup
+	PopupMenuIconStructNew = gimc.PopupMenuIconStructNew
 	popupMenu,
 	popupLibInc,
 	popupLibExc,
-	popMenuTextView *gimc.PopupMenuStruct
+	popMenuTextView *gimc.PopupMenuIconStruct
 
+	// D&D
 	dndLibInc, dndLibExc *gimc.DragNDropStruct
 	DragNDropNew         = gimc.DragNDropNew
+
+	// Clipboard
+	clipboard    *gimc.Clipboard
+	ClipboardNew = gimc.ClipboardNew
+
+	// TreeView conlumns mapping
+	includeMap = map[string]int{
+		`chk`:  0,
+		`name`: 1,
+		`path`: 2,
+	}
+
+	mapListStoreColumns = map[string]int{
+		"found": 0,
+		"type":  1,
+		"exprt": 2,
+		"libry": 3,
+		"score": 4,
+		"idx":   5}
 )
 
 type MainOpt struct {
@@ -123,14 +164,15 @@ type MainOpt struct {
 	HighlightUserDefined string
 
 	SourceLibs,
-	SubDirToSkip,
+	SubDirToSkip []libs
 	DefaultExclude []string
-	ListSep string
+	ListSep        string
 
-	SearchCharMinLen,
+	SearchCharMinLen int
+
 	ScoreThreshold,
 	MinScoreThreshold,
-	MaxScoreThreshold int
+	MaxScoreThreshold float64
 
 	FixedMapWidth,
 	Wrap,
@@ -175,12 +217,14 @@ func (opt *MainOpt) Init() {
 		{"Score", "integer"}, // -> Will be hidden since it is an (int) column
 		// used to track original place of the information.
 		{"idx", "integer"}} // -> Will be hidden since it is an (int) column
+
 	opt.dispResultsColumns = [][]string{
 		{"", "active"},
 		{"", "markup"},
 		{"idx", "integer"}} // -> Will be hidden since it is an (int) column
 
 	opt.libInclude = [][]string{
+		{"", "active"},
 		{"Name", "text"},
 		{"Path", "text"}}
 
@@ -242,7 +286,7 @@ func (opt *MainOpt) UpdateOptions() {
 	opt.MainWinWidth, opt.MainWinHeight = mainObjects.MainWindow.GetSize()
 	opt.MainWinPosX, opt.MainWinPosY = mainObjects.MainWindow.GetPosition()
 
-	opt.ScoreThreshold = mainObjects.SpinButtonScoreThreshold.GetValueAsInt()
+	opt.ScoreThreshold = mainObjects.SpinButtonScoreThreshold.GetValue()
 
 	opt.Functions = mainObjects.CheckBoxIncludeFunctions.GetActive()
 	opt.Structures = mainObjects.CheckBoxIncludeStructures.GetActive()
@@ -279,6 +323,9 @@ func (opt *MainOpt) Write() (err error) {
 	var jsonData []byte
 	var out bytes.Buffer
 	opt.UpdateOptions()
+
+	opt.About.DlgBoxStruct = nil // remove dialog object before saving
+
 	if jsonData, err = json.Marshal(&opt); err == nil {
 		if err = json.Indent(&out, jsonData, "", "\t"); err == nil {
 			err = ioutil.WriteFile(optFilename, out.Bytes(), os.ModePerm)

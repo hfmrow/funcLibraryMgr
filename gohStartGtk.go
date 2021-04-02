@@ -1,11 +1,11 @@
 // gohStartGtk.go
 
 /*
-	Source file auto-generated on Thu, 05 Nov 2020 07:28:28 using Gotk3ObjHandler v1.6.5 ©2018-20 H.F.M
+	Source file auto-generated on Sat, 27 Mar 2021 10:13:00 using Gotk3 Objects Handler v1.6.8 ©2018-20 H.F.M
 	This software use gotk3 that is licensed under the ISC License:
 	https://github.com/gotk3/gotk3/blob/master/LICENSE
 
-	Copyright ©2019-20 H.F.M - Functions & Library Manager v1.0 github.com/hfmrow/funcLibraryMgr
+	Copyright ©2019-21 H.F.M - Functions & Library Manager v1.1.4 github.com/hfmrow/go-func-lib-mgr
 	This program comes with absolutely no warranty. See the The MIT License (MIT) for details:
 	https://opensource.org/licenses/mit-license.php
 */
@@ -52,6 +52,7 @@ func mainStartGtk(winTitle string, width, height int, center bool) {
 		/* Start Gui loop */
 		gtk.Main()
 	} else {
+		Logger.Log(err, "Builder initialisation error")
 		log.Fatal("Builder initialisation error.", err.Error())
 	}
 }

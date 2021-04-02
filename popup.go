@@ -14,6 +14,7 @@ package main
 
 import (
 	"path/filepath"
+	"strings"
 
 	"github.com/hfmrow/gotk3_gtksource/source"
 
@@ -30,62 +31,77 @@ import (
 * Init Popup
  */
 
-func initPopupLibraryTreeView(tvs *gitw.TreeViewStructure, list *[]string) (popMenu *gimc.PopupMenuStruct) {
-	popMenu = gimc.PopupMenuStructNew()
-	popMenu.WithIcons = true
+func initPopupLibraryTreeView(tvs *gitw.TreeViewStructure, list *[]libs) (popMenu *gimc.PopupMenuIconStruct) {
+	popMenu = PopupMenuIconStructNew()
 	popMenu.AddItem("_Remove entry", func() {
-		tvs.RemoveRow(tvs.GetSelectedIters()...)
+		tvs.RemoveRows(tvs.GetSelectedIters()...)
 		*list = retrieveTreeView(tvs)
 
 		initSourceDirectories()
-	}, crossIcon48)
+	}, popMenu.OPT_ICON, crossIcon48)
 	popMenu.MenuBuild()
 	return
 }
 
 // initPopupTreeView:
 func initPopupTreeView() {
-	popupMenu = gimc.PopupMenuStructNew()
-	popupMenu.WithIcons = true
-	popupMenu.AddItem("Open _directory", func() { openDir() }, folderOpen20)
-	popupMenu.AddItem("Open _file", func() { openFile() }, mimetypeSourceIconGolang48)
+	popupMenu = PopupMenuIconStructNew()
+	popupMenu.AddItem("_Copy clipboard", func() { toClipboard() }, popupMenu.OPT_ICON, actionsEditCopy)
+	popupMenu.AddItem("Open _directory", func() { openDir() }, popupMenu.OPT_ICON, folderOpen20)
+	popupMenu.AddItem("Open _file", func() { openFile() }, popupMenu.OPT_ICON, mimetypeSourceIconGolang48)
 	popupMenu.MenuBuild()
 }
 
 // openFile:
 func openFile(index ...int) {
-	var ok bool
-	var descr shortDescription
-	if len(index) > 0 {
-		descr, ok = declIdexes.GetDescr(index[0])
-	} else {
-		var iters []*gtk.TreeIter
-		if iters = tvsTreeSearch.GetSelectedIters(); len(iters) > 0 {
-			idx := tvsTreeSearch.GetColValue(iters[0], 5)
-			descr, ok = declIdexes.GetDescr(idx.(int))
-		}
-	}
+
+	descr, ok := getDesc(index...)
 	if ok {
 		open(filepath.Join(desc.RootLibs, descr.File))
 	}
 }
 
+// toClipboard:
+func toClipboard(index ...int) {
+
+	var content string
+
+	descr, ok := getDesc(index...)
+	if ok {
+		if descr.Type != "method" {
+			if mainObjects.CheckBoxAddShortcuts.GetActive() {
+				content = strings.Join([]string{descr.Shortcut, `"` + filepath.Dir(descr.File) + `"`}, " ")
+			} else {
+				content = `"` + filepath.Dir(descr.File) + `"`
+			}
+			clipboard.SetText(content)
+			clipboard.Store()
+		}
+	}
+}
+
 // openDir:
 func openDir(index ...int) {
-	var ok bool
-	var descr shortDescription
+
+	descr, ok := getDesc(index...)
+	if ok {
+		open(filepath.Dir(filepath.Join(desc.RootLibs, descr.File)))
+	}
+}
+
+// getDesc:
+func getDesc(index ...int) (descr shortDescription, ok bool) {
+
 	if len(index) > 0 {
 		descr, ok = declIdexes.GetDescr(index[0])
 	} else {
 		var iters []*gtk.TreeIter
 		if iters = tvsTreeSearch.GetSelectedIters(); len(iters) > 0 {
-			idx := tvsTreeSearch.GetColValue(iters[0], 5)
+			idx := tvsTreeSearch.GetColValue(iters[0], mapListStoreColumns["idx"])
 			descr, ok = declIdexes.GetDescr(idx.(int))
 		}
 	}
-	if ok {
-		open(filepath.Dir(filepath.Join(desc.RootLibs, descr.File)))
-	}
+	return
 }
 
 // open: show file or dir depending on "path".
@@ -93,7 +109,7 @@ func open(path string) {
 
 	glib.IdleAdd(func() { // IdleAdd to permit gtk3 working right during goroutine
 		// Using goroutine to permit the usage of another thread and freeing the current one.
-		go glts.ExecCommand(mainOptions.AppLauncher, path)
+		go glts.ExecCommand([]string{mainOptions.AppLauncher, path})
 	})
 }
 
@@ -102,11 +118,10 @@ func popupTextViewPopulateMenu(txtView *source.SourceView, popup *gtk.Widget) {
 	// Convert gtk.Widget to gtk.Menu object
 	pop := &gtk.Menu{gtk.MenuShell{gtk.Container{*popup}}}
 	// create new menuitems
-	popMenuTextView = gimc.PopupMenuStructNew()
-	popMenuTextView.WithIcons = true
-	popMenuTextView.AddSeparator()
-	popMenuTextView.AddItem("Open _directory", func() { openDir(indexCurrText) }, folderOpen20)
-	popMenuTextView.AddItem("Open _file", func() { openFile(indexCurrText) }, mimetypeSourceIconGolang48)
+	popMenuTextView = PopupMenuIconStructNew()
+	popMenuTextView.AddItem("", nil, popupMenu.OPT_SEPARATOR)
+	popMenuTextView.AddItem("Open _directory", func() { openDir(indexCurrText) }, popupMenu.OPT_ICON, folderOpen20)
+	popMenuTextView.AddItem("Open _file", func() { openFile(indexCurrText) }, popupMenu.OPT_ICON, mimetypeSourceIconGolang48)
 	// Append them to the existing menu
 	popMenuTextView.AppendToExistingMenu(pop)
 }

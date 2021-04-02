@@ -17,19 +17,21 @@ import (
 // initSourceDirectories:
 func initSourceDirectories() {
 	var err error
-	if len(mainOptions.SourceLibs) > 0 {
-		err = initSourceLibs(mainOptions.SourceLibs, mainOptions.SubDirToSkip)
-		DlgErr(sts["errEOF"], err)
-		updateStatusBar()
-		EntrySearchForChanged(mainObjects.EntrySearchFor)
-	}
+	// if len(mainOptions.SourceLibs) > 0 {
+	err = initSourceLibs(mainOptions.SourceLibs, mainOptions.SubDirToSkip)
+	DlgErr(sts["errEOF"], err)
+	updateStatusBar()
+	EntrySearchForChanged(mainObjects.EntrySearchFor)
+	// }
 }
 
 // updateStatusBar:
 func updateStatusBar(status ...string) {
 
 	if declIdexes != nil {
-
+		if len(desc.Desc) == 0 {
+			declIdexes.Count = 0
+		}
 		statusbar.Set(fmt.Sprintf("%d", declIdexes.Count), 0)
 		statusbar.Set(fmt.Sprintf("%d", tvsTreeSearch.CountRows()), 1)
 		statusbar.Set(fmt.Sprintf("%s", mainOptions.LastDescFilename), 2)
@@ -43,9 +45,9 @@ func updateStatusBar(status ...string) {
 }
 
 // IsExistSlice: if exist then  ...
-func isExistSlice(slice []string, item string) bool {
+func isExistSlice(slice []libs, item libs) bool {
 	for _, mainRow := range slice {
-		if mainRow == item {
+		if mainRow.Path == item.Path {
 			return true
 		}
 	}

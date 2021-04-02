@@ -53,11 +53,12 @@ import (
 	"strconv"
 
 	glfs "github.com/hfmrow/genLib/files"
+	glfsfs "github.com/hfmrow/genLib/files/files-operations"
 	glfssf "github.com/hfmrow/genLib/files/scanFileDir"
 	glss "github.com/hfmrow/genLib/slices"
 )
 
-var name = "MIT License, libVendoringV1.0 Copyright (c) 2019 H.F.M, https://github.com/hfmrow"
+var name = "MIT License, libVendoringV1.0 Copyright (c) 2019-20 H.F.M, https://github.com/hfmrow"
 
 type LibsVendor struct {
 	Author          string
@@ -75,6 +76,18 @@ type LibsVendor struct {
 
 	goSrc string
 	goPkg string
+
+	fos *glfsfs.FilesOpStruct
+}
+
+// LibVendorNew: The purpose of this library is to build a "vendor"
+// directory in a project that hold all the necessary imports for a
+// successful compilation even if the officials libs have changed.
+func LibVendorNew() (lv *LibsVendor, err error) {
+	lv = new(LibsVendor)
+	lv.init()
+	lv.fos, err = glfsfs.FilesOpStructNew()
+	return
 }
 
 func (lv *LibsVendor) scanDirInfo(path string, ext []string) (fInf []os.FileInfo, err error) {
@@ -145,14 +158,14 @@ func (lv *LibsVendor) RunForFiles(filenames []string, skipImports ...[]string) (
 }
 
 // Init: init some variables
-func (lv *LibsVendor) Init() {
+func (lv *LibsVendor) init() {
 	lv.Author = name
 	lv.goSrc = filepath.Join(os.Getenv("GOPATH"), "src") // Full path to src directory based on GOPATH environment variable
 	lv.goPkg = filepath.Join(os.Getenv("GOROOT"), "src") // Full path to root directory based on GOROOT environment variable - target native libs
 	lv.ExludedImports = []string{                        // Some usual excluded directories, this list will be added to user's list
 		".git",
-		"TEST",
-		"C",
+		"TEST", /*
+			"C",*/
 	}
 	lv.ExludedFiles = []string{"*.debug"} // Some usual excluded directories, this list will be added to user's list
 }
@@ -268,10 +281,10 @@ func (lv *LibsVendor) CopyLibsToVendor() (err error) {
 			if fInf, err = lv.scanDirInfo(filepath.Join(lv.goSrc, impt),
 				[]string{"*.*", "*"}); err == nil {
 				for _, fi := range fInf {
-					if !glfs.FileMatch(fi.Name(), lv.ExludedFiles) { // skip *.debug files
+					if !glfs.ExtFileMatch(fi.Name(), lv.ExludedFiles) { // skip *.debug files
 						src := filepath.Join(lv.goSrc, impt, fi.Name())
 						dst := filepath.Join(vendorDir, impt, fi.Name())
-						if err = glfs.FileCopy(src, dst); err != nil {
+						if err = lv.fos.CopyFile(src, dst); err != nil {
 							break
 						}
 					}
@@ -325,7 +338,7 @@ func (lv *LibsVendor) Write(filename string) (err error) {
 	var out bytes.Buffer
 	if jsonData, err = json.Marshal(&lv); err == nil {
 		if err = json.Indent(&out, jsonData, "", "\t"); err == nil {
-			err = ioutil.WriteFile(filename, out.Bytes(), os.ModePerm)
+			err = lv.fos.WriteFile(filename, out.Bytes(), lv.fos.Perms.File)
 		}
 	}
 	return
