@@ -21,20 +21,18 @@ $ sudo apt install libgtksourceview-4-0
 > **Functions Library Manager** Debian package installation:
 > 
 > ```bash
-> $ sudo dpkg -i func-library-mgr-x.x-amd64.deb
+> $ sudo dpkg -i go-func-lib-mgr-x.x-amd64.deb
 > ```
 > 
 > Uninstall:
 > 
 > ```bash
-> $ sudo dpkg -P func-library-mgr
+> $ sudo dpkg -P go-func-lib-mgr
 > ```
 
 Take a look at [H.F.M repositories](https://github.com/hfmrow/) for others useful Linux software.
 
-- If you just want **to use it**, simply **download** the **compiled version** ( .deb or .7z) under the [Releases](https://github.com/hfmrow/funcLibraryMgr/releases) tab.
-
-- **Notice** (.7z version): You can check at [the Right way to install H.F.M's software](https://github.com/hfmrow/instHFMsofts) page to integrate in your Debian environment. ".desktop" file is made to work into the "/opt" directory, if you want to put main folder in an other place, please adjust the ".desktop" file to match the desired directory. Remember, all resources used are embedded in the executable. An ".opt" file is made at the first launch it's used to store used options (stored in ~/.config dir).
+- If you just want **to use it**, simply **download** the **compiled version** ( .deb) under the [Releases](https://github.com/hfmrow/funcLibraryMgr/releases) tab.
 
 - Otherwise, if you plan to play inside the source code, see below "How to compile" section.
 
@@ -64,7 +62,7 @@ Take a look at [H.F.M repositories](https://github.com/hfmrow/) for others usefu
 
 - Be sure you have golang installed in right way. [Go installation](https://golang.org/doc/install).
 
-- Open terminal window and at command prompt, type: `go get github.com/hfmrow/go-func-lib-mgr
+- Open terminal window and at command prompt, type: `go get github.com/hfmrow/go-func-lib-mgr`
 
 - See [Gotk3 Installation instructions](https://github.com/gotk3/gotk3/wiki#installation) for gui installation instruction.
 
@@ -115,7 +113,7 @@ This operation indicate that externals data (Image/Icons) must be embedded into 
 
 ### You got an issue ?
 
-- Go to this page: [Issues · hfmrow/funcLibraryMgr · GitHub](https://github.com/hfmrow/funcLibraryMgr/issues) and start a new problem report.
+- Go to this page: [Issues · hfmrow/go-func-lib-mgr · GitHub](https://github.com/hfmrow/go-func-lib-mgr/issues) and start a new problem report.
 - Give the information (as above), concerning your working environment as well as the version of the operating system used.
 - Provide a method to reproduce the problem.
 
