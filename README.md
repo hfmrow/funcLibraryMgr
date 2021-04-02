@@ -51,7 +51,7 @@ Take a look at [H.F.M repositories](https://github.com/hfmrow/) for others usefu
 - Creation of a "vendor" directory to facilitate future compilations of your projects without problem by copying all the libraries used in it, in this way, even if the libraries have changed (become incompatible) or disappeared, your program can still have access to it. Possibility to include (or not) the libraries according to your wishes.
 - Allows you to preview the source code (which was found) with a highlight capability spanning multiple languages.
 - A map that allows you to see all the content of the code found and allows easy navigation through it.
-- Easily navigate to the * functions * / * methods * / * structures * tree and simply display the "comment" it contains using the tooltip display.
+- Easily navigate to the **functions**/ **methods** /**structures** tree and simply display the "comment" it contains using the tooltip display.
 - Each function have his tool-tip for explanations.
 
 *This is the main screen, and children*
