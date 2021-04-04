@@ -32,7 +32,7 @@ $ sudo apt install libgtksourceview-4-0
 
 Take a look at [H.F.M repositories](https://github.com/hfmrow/) for others useful Linux software.
 
-- If you just want **to use it**, simply **download** the **compiled version** ( .deb) under the [Releases](https://github.com/hfmrow/funcLibraryMgr/releases) tab.
+- If you just want **to use it**, simply **download** the **compiled version** ( .deb) under the [Releases](https://github.com/hfmrow/go-func-lib-mgr/releases) tab.
 
 - Otherwise, if you plan to play inside the source code, see below "How to compile" section.
 
@@ -106,7 +106,7 @@ This operation indicate that externals data (Image/Icons) must be embedded into 
 | GLIB 2                                                     | 2.64.3                                         |
 | CAIRO                                                      | 1.16.0                                         |
 | [GtkSourceView](https://github.com/hfmrow/gotk3_gtksource) | 4.6.0                                          |
-| [LiteIDE](https://github.com/visualfc/liteide)             | 37.3 qt5.x                                     |
+| [LiteIDE](https://github.com/visualfc/liteide)             | 37.4 qt5.x                                     |
 | Qt5                                                        | 5.12.8 in /usr/lib/x86_64-linux-gnu            |
 
 - The compilation have not been tested under Windows or Mac OS, but all file access functions, line-end manipulations or charset implementation are made with OS portability in mind.
