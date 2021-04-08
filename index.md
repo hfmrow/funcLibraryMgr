@@ -56,7 +56,7 @@ Take a look at [H.F.M repositories](https://github.com/hfmrow/) for others usefu
 
 *This is the main screen, and children*
 
-![whole.jpg](assets/readme/screen.png)
+![Overview](assets/readme/screen.png)
 
 ### How to compile
 
