@@ -90,11 +90,14 @@ into
 
 This operation indicate that externals data (Image/Icons) must be embedded into the executable file.
 
-### Os information (build using)
+## Os information:
+
+<details>
+  <summary>Built using</summary>
 
 | Name                                                       | Version / Info / Name                          |
 | ---------------------------------------------------------- | ---------------------------------------------- |
-| GOLANG                                                     | V1.16.2 -> GO111MODULE="off", GOPROXY="direct" |
+| GOLANG                                                     | V1.16.3 -> GO111MODULE="off", GOPROXY="direct" |
 | DISTRIB                                                    | LinuxMint Xfce                                 |
 | VERSION                                                    | 20                                             |
 | CODENAME                                                   | ulyana                                         |
@@ -108,6 +111,8 @@ This operation indicate that externals data (Image/Icons) must be embedded into 
 | [GtkSourceView](https://github.com/hfmrow/gotk3_gtksource) | 4.6.0                                          |
 | [LiteIDE](https://github.com/visualfc/liteide)             | 37.4 qt5.x                                     |
 | Qt5                                                        | 5.12.8 in /usr/lib/x86_64-linux-gnu            |
+
+</details>
 
 - The compilation have not been tested under Windows or Mac OS, but all file access functions, line-end manipulations or charset implementation are made with OS portability in mind.
 

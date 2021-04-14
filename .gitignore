@@ -12,6 +12,7 @@
 
 # Unignore
 !LICENSE
+!version
 
 #########################################################
 # And now we indicate the files/dir we want to exclude. #
@@ -42,4 +43,3 @@ assets/artWork/*
 *.SUM
 *.desktop
 git-push.sh
-
